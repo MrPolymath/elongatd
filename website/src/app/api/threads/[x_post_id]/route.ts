@@ -20,18 +20,51 @@ interface TweetMetrics {
   replies: number;
   retweets: number;
   likes: number;
+  views: number;
+  bookmarks: number;
+}
+
+interface Author {
+  id: string;
+  name: string;
+  username: string;
+  profile_image_url: string;
+  verified: boolean;
+  description: string;
+  followers_count: number;
+  following_count: number;
+  location: string;
+  created_at: string;
+  url: string;
+}
+
+interface TweetAttachment {
+  type: string;
+  url: string;
+  video_info?: {
+    duration_millis: number;
+    variants: {
+      bitrate: number;
+      content_type: string;
+      url: string;
+    }[];
+  };
 }
 
 interface Tweet {
-  username: string;
-  timestamp: string;
+  id: string;
   text: string;
+  created_at: string;
   metrics: TweetMetrics;
+  attachments: TweetAttachment[];
 }
 
 interface ThreadData {
-  mainTweet: Tweet;
-  replies: Tweet[];
+  author: Author;
+  thread_id: string;
+  created_at: string;
+  tweets: Tweet[];
+  total_metrics: TweetMetrics;
 }
 
 export async function GET(
@@ -51,33 +84,48 @@ export async function GET(
       );
     }
 
-    const replies = await db.query.replies.findMany({
-      where: eq(schema.replies.thread_id, x_post_id),
-      orderBy: [desc(schema.replies.sequence)],
+    const threadTweets = await db.query.tweets.findMany({
+      where: eq(schema.tweets.thread_id, x_post_id),
+      orderBy: [desc(schema.tweets.sequence)],
     });
 
     // Format the response to match our ThreadData interface
     const threadData: ThreadData = {
-      mainTweet: {
-        username: thread.username,
-        timestamp: thread.timestamp.toISOString(),
-        text: thread.text,
-        metrics: {
-          replies: thread.replies_count,
-          retweets: thread.retweets_count,
-          likes: thread.likes_count,
-        },
+      author: {
+        id: thread.author_id,
+        name: thread.author_name,
+        username: thread.author_username,
+        profile_image_url: thread.author_profile_image_url,
+        verified: thread.author_verified,
+        description: thread.author_description,
+        followers_count: thread.author_followers_count,
+        following_count: thread.author_following_count,
+        location: thread.author_location || "",
+        created_at: thread.author_created_at.toISOString(),
+        url: thread.author_url || "",
       },
-      replies: replies.map((reply) => ({
-        username: thread.username,
-        timestamp: reply.timestamp.toISOString(),
-        text: reply.text,
+      thread_id: x_post_id,
+      created_at: thread.created_at.toISOString(),
+      tweets: threadTweets.map((tweet) => ({
+        id: tweet.id,
+        text: tweet.text,
+        created_at: tweet.created_at.toISOString(),
         metrics: {
-          replies: 0,
-          retweets: 0,
-          likes: 0,
+          replies: tweet.metrics_replies,
+          retweets: tweet.metrics_retweets,
+          likes: tweet.metrics_likes,
+          views: tweet.metrics_views,
+          bookmarks: tweet.metrics_bookmarks,
         },
+        attachments: tweet.attachments as TweetAttachment[],
       })),
+      total_metrics: {
+        replies: thread.total_metrics_replies,
+        retweets: thread.total_metrics_retweets,
+        likes: thread.total_metrics_likes,
+        views: thread.total_metrics_views,
+        bookmarks: thread.total_metrics_bookmarks,
+      },
     };
 
     return corsResponse(NextResponse.json(threadData));
@@ -110,7 +158,11 @@ export async function POST(
     });
 
     // Basic validation
-    if (!threadData.mainTweet || !Array.isArray(threadData.replies)) {
+    if (
+      !threadData.author ||
+      !Array.isArray(threadData.tweets) ||
+      threadData.tweets.length === 0
+    ) {
       return corsResponse(
         NextResponse.json(
           { error: "Invalid thread data format" },
@@ -119,39 +171,89 @@ export async function POST(
       );
     }
 
-    // For now, just return success without storing in DB
+    // Store the thread data in the database
+    await db.transaction(async (tx) => {
+      // Check if thread exists
+      const existingThread = await tx.query.threads.findFirst({
+        where: eq(schema.threads.id, threadData.thread_id),
+      });
+
+      if (existingThread) {
+        // Update existing thread
+        await tx
+          .update(schema.threads)
+          .set({
+            author_name: threadData.author.name,
+            author_username: threadData.author.username,
+            author_profile_image_url: threadData.author.profile_image_url,
+            author_verified: threadData.author.verified,
+            author_description: threadData.author.description,
+            author_followers_count: threadData.author.followers_count,
+            author_following_count: threadData.author.following_count,
+            author_location: threadData.author.location,
+            author_url: threadData.author.url,
+            total_metrics_replies: threadData.total_metrics.replies,
+            total_metrics_retweets: threadData.total_metrics.retweets,
+            total_metrics_likes: threadData.total_metrics.likes,
+            total_metrics_views: threadData.total_metrics.views,
+            total_metrics_bookmarks: threadData.total_metrics.bookmarks,
+            updated_at: new Date(),
+          })
+          .where(eq(schema.threads.id, threadData.thread_id));
+
+        // Delete existing tweets to replace them with updated ones
+        await tx
+          .delete(schema.tweets)
+          .where(eq(schema.tweets.thread_id, threadData.thread_id));
+      } else {
+        // Insert new thread
+        await tx.insert(schema.threads).values({
+          id: threadData.thread_id,
+          created_at: new Date(threadData.created_at),
+          author_id: threadData.author.id,
+          author_name: threadData.author.name,
+          author_username: threadData.author.username,
+          author_profile_image_url: threadData.author.profile_image_url,
+          author_verified: threadData.author.verified,
+          author_description: threadData.author.description,
+          author_followers_count: threadData.author.followers_count,
+          author_following_count: threadData.author.following_count,
+          author_location: threadData.author.location,
+          author_created_at: new Date(threadData.author.created_at),
+          author_url: threadData.author.url,
+          total_metrics_replies: threadData.total_metrics.replies,
+          total_metrics_retweets: threadData.total_metrics.retweets,
+          total_metrics_likes: threadData.total_metrics.likes,
+          total_metrics_views: threadData.total_metrics.views,
+          total_metrics_bookmarks: threadData.total_metrics.bookmarks,
+        });
+      }
+
+      // Insert all tweets (including the first one)
+      await tx.insert(schema.tweets).values(
+        threadData.tweets.map((tweet, index) => ({
+          id: tweet.id,
+          thread_id: threadData.thread_id,
+          text: tweet.text,
+          created_at: new Date(tweet.created_at),
+          sequence: index,
+          metrics_replies: tweet.metrics.replies,
+          metrics_retweets: tweet.metrics.retweets,
+          metrics_likes: tweet.metrics.likes,
+          metrics_views: tweet.metrics.views,
+          metrics_bookmarks: tweet.metrics.bookmarks,
+          attachments: tweet.attachments,
+        }))
+      );
+    });
+
     return corsResponse(
       NextResponse.json({
         success: true,
         id: x_post_id,
-        message: "Thread data received successfully (currently in debug mode)",
+        message: "Thread data stored successfully",
       })
     );
-
-    /* Commented out DB storage for now
-    await db.transaction(async (tx) => {
-      await tx.insert(schema.threads).values({
-        id: x_post_id,
-        username: threadData.mainTweet.username,
-        timestamp: new Date(threadData.mainTweet.timestamp),
-        text: threadData.mainTweet.text,
-        replies_count: threadData.mainTweet.metrics.replies,
-        retweets_count: threadData.mainTweet.metrics.retweets,
-        likes_count: threadData.mainTweet.metrics.likes,
-      });
-
-      if (threadData.replies.length > 0) {
-        await tx.insert(schema.replies).values(
-          threadData.replies.map((reply: Tweet, index: number) => ({
-            thread_id: x_post_id,
-            text: reply.text,
-            timestamp: new Date(reply.timestamp),
-            sequence: index + 1,
-          }))
-        );
-      }
-    });
-    */
   } catch (error) {
     console.error("Error processing thread:", error);
     return corsResponse(

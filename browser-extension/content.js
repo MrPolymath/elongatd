@@ -120,33 +120,96 @@ function extractTweetInfo(tweetContent) {
       views: tweetContent.views?.count || 0,
       bookmarks: legacy.bookmark_count || 0,
     },
-    attachments: [],
+    attachments: extractAttachments(tweetContent),
   };
 
-  // Extract media attachments
-  if (legacy.extended_entities?.media) {
-    legacy.extended_entities.media.forEach((media) => {
-      const attachment = {
-        type: media.type,
-        url: media.media_url_https,
-      };
+  return tweet;
+}
 
-      if (media.type === "video") {
-        attachment.video_info = {
-          duration_millis: media.video_info.duration_millis,
-          variants: media.video_info.variants.map((v) => ({
-            bitrate: v.bitrate,
-            content_type: v.content_type,
-            url: v.url,
-          })),
-        };
+function extractAttachments(tweet) {
+  const attachments = [];
+
+  // Extract media (images and videos)
+  if (tweet.legacy?.extended_entities?.media) {
+    tweet.legacy.extended_entities.media.forEach((media) => {
+      if (media.type === "photo") {
+        attachments.push({
+          type: "image",
+          url: media.media_url_https,
+          original_url: media.url,
+        });
+      } else if (media.type === "video") {
+        console.log(
+          "[Thread Extractor] Processing video variants:",
+          media.video_info.variants
+        );
+
+        // Filter to only MP4s and sort by bitrate
+        const mp4Variants = media.video_info.variants.filter(
+          (v) => v.content_type === "video/mp4"
+        );
+
+        console.log(
+          "[Thread Extractor] MP4 variants before sorting:",
+          mp4Variants
+        );
+
+        // Sort by bitrate in descending order
+        const sortedVariants = mp4Variants.sort((a, b) => {
+          const bitrateA = a.bitrate || 0;
+          const bitrateB = b.bitrate || 0;
+          return bitrateB - bitrateA;
+        });
+
+        console.log("[Thread Extractor] Sorted variants:", sortedVariants);
+
+        if (sortedVariants.length > 0) {
+          const highestQuality = sortedVariants[0];
+          console.log(
+            "[Thread Extractor] Selected highest quality variant:",
+            highestQuality
+          );
+
+          attachments.push({
+            type: "video",
+            url: highestQuality.url,
+            thumbnail_url: media.media_url_https,
+            duration_ms: media.video_info.duration_millis,
+            original_url: media.url,
+            width: parseInt(
+              highestQuality.url.match(/\/(\d+)x(\d+)\//)?.[1] || "0"
+            ),
+            height: parseInt(
+              highestQuality.url.match(/\/(\d+)x(\d+)\//)?.[2] || "0"
+            ),
+            bitrate: highestQuality.bitrate,
+          });
+        }
       }
-
-      tweet.attachments.push(attachment);
     });
   }
 
-  return tweet;
+  // Extract card/link preview
+  if (tweet.card?.legacy?.binding_values) {
+    const values = tweet.card.legacy.binding_values.reduce(
+      (acc, { key, value }) => {
+        acc[key] = value.string_value;
+        return acc;
+      },
+      {}
+    );
+
+    if (values.title || values.description) {
+      attachments.push({
+        type: "link",
+        title: values.title,
+        description: values.description,
+        url: tweet.legacy.entities?.urls?.[0]?.expanded_url,
+      });
+    }
+  }
+
+  return attachments;
 }
 
 // Function to send data to our API
