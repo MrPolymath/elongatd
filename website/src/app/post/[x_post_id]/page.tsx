@@ -157,7 +157,7 @@ export default function ThreadPost() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 text-gray-100 flex items-center justify-center">
         <div className="text-xl">Loading thread...</div>
       </div>
     );
@@ -165,7 +165,7 @@ export default function ThreadPost() {
 
   if (error || !threadData) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 text-gray-100 flex items-center justify-center">
         <div className="text-xl text-red-400">
           {error || "Thread not found"}
         </div>
