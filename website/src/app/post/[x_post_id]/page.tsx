@@ -261,32 +261,68 @@ export default function ThreadPost() {
       <main className="container max-w-4xl mx-auto px-4 py-8">
         <article className="prose prose-invert prose-xl max-w-none">
           {/* Author Info */}
-          <div className="flex items-start gap-4 mb-8 not-prose">
-            <Avatar className="h-14 w-14">
-              <AvatarImage src={author.profile_image_url} />
-              <AvatarFallback>{author.name[0].toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="font-bold text-2xl text-gray-100">
-                  {author.name}
-                </h2>
-                <span className="text-gray-400 text-lg">
-                  @{author.username}
-                </span>
-                {author.verified && (
-                  <span className="text-blue-400 text-base">✓ Verified</span>
-                )}
+          <div className="flex flex-col gap-6 mb-12 not-prose bg-gray-800/20 rounded-xl p-6">
+            <div className="flex items-start gap-5">
+              <Avatar className="h-16 w-16 rounded-full ring-2 ring-blue-500/20">
+                <AvatarImage src={author.profile_image_url} />
+                <AvatarFallback>{author.name[0].toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className="font-bold text-2xl text-gray-100 truncate">
+                    {author.name}
+                  </h2>
+                  {author.verified && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-500/10 text-blue-400">
+                      Verified
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-gray-400">@{author.username}</span>
+                  {author.location && (
+                    <>
+                      <span className="text-gray-600">·</span>
+                      <span className="text-gray-400">{author.location}</span>
+                    </>
+                  )}
+                </div>
               </div>
-              <p className="text-gray-400 text-base mt-1">
-                {author.description}
-              </p>
-              <div className="flex items-center gap-4 mt-2 text-base text-gray-400">
-                <span>{formatNumber(author.followers_count)} followers</span>
-                <span>{author.location}</span>
-                <time>
-                  Joined {new Date(author.created_at).toLocaleDateString()}
-                </time>
+            </div>
+
+            <div className="space-y-4">
+              {author.description && (
+                <p className="text-gray-300 text-base leading-relaxed">
+                  {author.description}
+                </p>
+              )}
+
+              <div className="flex flex-wrap gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-gray-100">
+                    {formatNumber(author.followers_count)}
+                  </span>
+                  <span className="text-gray-400">Followers</span>
+                </div>
+                {author.following_count && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-100">
+                        {formatNumber(author.following_count)}
+                      </span>
+                      <span className="text-gray-400">Following</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">Joined</span>
+                  <span className="text-gray-100">
+                    {new Date(author.created_at).toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
