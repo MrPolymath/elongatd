@@ -58,8 +58,38 @@ function extractThreadInfoFromResponse(response) {
       url: user.url || "",
     };
 
+    // Helper function to clean tweet text
+    function cleanTweetText(text, entities) {
+      if (!text) return "";
+
+      // Replace all URLs with [link]
+      if (entities?.urls) {
+        entities.urls.forEach((urlEntity) => {
+          text = text.replace(urlEntity.url, "");
+        });
+      }
+
+      return text.trim();
+    }
+
     // Add main tweet
-    tweets.push(extractTweetInfo(mainTweetContent));
+    const mainTweetText =
+      mainTweetContent.note_tweet?.note_tweet_results?.result?.text ||
+      mainTweetLegacy.full_text;
+    console.log("[Thread Extractor] Main tweet text:", mainTweetText);
+    tweets.push({
+      id: mainTweetContent.rest_id,
+      text: cleanTweetText(mainTweetText, mainTweetLegacy.entities),
+      created_at: mainTweetLegacy.created_at,
+      metrics: {
+        replies: mainTweetLegacy.reply_count,
+        retweets: mainTweetLegacy.retweet_count,
+        likes: mainTweetLegacy.favorite_count,
+        views: mainTweetContent.views?.count || 0,
+        bookmarks: mainTweetLegacy.bookmark_count || 0,
+      },
+      attachments: extractAttachments(mainTweetContent),
+    });
 
     // Process thread replies if they exist
     if (threadEntry && threadEntry.content.items) {
@@ -69,7 +99,23 @@ function extractThreadInfoFromResponse(response) {
 
         // Only include tweets from the same author
         if (tweetContent.core.user_results.result.rest_id === authorInfo.id) {
-          tweets.push(extractTweetInfo(tweetContent));
+          const replyText =
+            tweetContent.note_tweet?.note_tweet_results?.result?.text ||
+            tweetContent.legacy.full_text;
+          console.log("[Thread Extractor] Reply tweet text:", replyText);
+          tweets.push({
+            id: tweetContent.rest_id,
+            text: cleanTweetText(replyText, tweetContent.legacy.entities),
+            created_at: tweetContent.legacy.created_at,
+            metrics: {
+              replies: tweetContent.legacy.reply_count,
+              retweets: tweetContent.legacy.retweet_count,
+              likes: tweetContent.legacy.favorite_count,
+              views: tweetContent.views?.count || 0,
+              bookmarks: tweetContent.legacy.bookmark_count || 0,
+            },
+            attachments: extractAttachments(tweetContent),
+          });
         }
       });
     }
@@ -109,9 +155,16 @@ function extractThreadInfoFromResponse(response) {
 function extractTweetInfo(tweetContent) {
   const legacy = tweetContent.legacy;
 
+  // Get text from note_tweet_results
+  const text = tweetContent.note_tweet?.note_tweet_results?.result?.text || "";
+  if (!text) {
+    console.error("[Thread Extractor] No text found in tweet:", tweetContent);
+    throw new Error("No text found in tweet");
+  }
+
   const tweet = {
     id: tweetContent.rest_id,
-    text: legacy.full_text,
+    text: text,
     created_at: legacy.created_at,
     metrics: {
       replies: legacy.reply_count,
@@ -123,6 +176,10 @@ function extractTweetInfo(tweetContent) {
     attachments: extractAttachments(tweetContent),
   };
 
+  console.log("[Thread Extractor] Extracted tweet:", {
+    id: tweet.id,
+    text: tweet.text,
+  });
   return tweet;
 }
 
