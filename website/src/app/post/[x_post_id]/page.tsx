@@ -275,14 +275,77 @@ export default function ThreadPost() {
 
           {/* Thread Content */}
           <div className="space-y-6">
-            {content.map((part, index) => (
-              <div key={index} className="prose prose-invert prose-lg">
-                <p className="whitespace-pre-wrap">{part.text}</p>
-                {part.attachments?.map((attachment, i) => (
-                  <Attachment key={i} attachment={attachment} />
-                ))}
-              </div>
-            ))}
+            {content.map((part, index) => {
+              // Get URLs from link attachments
+              const linkUrls =
+                part.attachments
+                  ?.filter((a) => a.type === "link")
+                  .map((a) => a.url) || [];
+
+              // Process text to replace URLs with clickable links
+              let displayText = part.text;
+              const urlRegex = /https?:\/\/[^\s]+/g;
+              const matches = [...displayText.matchAll(urlRegex)];
+
+              if (matches.length > 0) {
+                // Create fragments with replaced URLs
+                const fragments = [];
+                let lastIndex = 0;
+
+                matches.forEach((match, i) => {
+                  const url = match[0];
+                  // Skip if this URL has a preview card
+                  if (linkUrls.includes(url)) {
+                    displayText = displayText.replace(url, "");
+                    return;
+                  }
+
+                  // Add text before the URL
+                  if (match.index > lastIndex) {
+                    fragments.push(displayText.slice(lastIndex, match.index));
+                  }
+
+                  // Add the URL as a link
+                  fragments.push(
+                    <a
+                      key={`link-${index}-${i}`}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300"
+                    >
+                      link
+                    </a>
+                  );
+
+                  lastIndex = match.index + url.length;
+                });
+
+                // Add any remaining text
+                if (lastIndex < displayText.length) {
+                  fragments.push(displayText.slice(lastIndex));
+                }
+
+                return (
+                  <div key={index} className="prose prose-invert prose-lg">
+                    <p className="whitespace-pre-wrap">{fragments}</p>
+                    {part.attachments?.map((attachment, i) => (
+                      <Attachment key={i} attachment={attachment} />
+                    ))}
+                  </div>
+                );
+              }
+
+              // If no URLs, render normally
+              return (
+                <div key={index} className="prose prose-invert prose-lg">
+                  <p className="whitespace-pre-wrap">{displayText.trim()}</p>
+                  {part.attachments?.map((attachment, i) => (
+                    <Attachment key={i} attachment={attachment} />
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </article>
 

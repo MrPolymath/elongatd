@@ -58,20 +58,6 @@ function extractThreadInfoFromResponse(response) {
       url: user.url || "",
     };
 
-    // Helper function to clean tweet text
-    function cleanTweetText(text, entities) {
-      if (!text) return "";
-
-      // Replace all URLs with [link]
-      if (entities?.urls) {
-        entities.urls.forEach((urlEntity) => {
-          text = text.replace(urlEntity.url, "");
-        });
-      }
-
-      return text.trim();
-    }
-
     // Add main tweet
     const mainTweetText =
       mainTweetContent.note_tweet?.note_tweet_results?.result?.text ||
@@ -79,7 +65,7 @@ function extractThreadInfoFromResponse(response) {
     console.log("[Thread Extractor] Main tweet text:", mainTweetText);
     tweets.push({
       id: mainTweetContent.rest_id,
-      text: cleanTweetText(mainTweetText, mainTweetLegacy.entities),
+      text: mainTweetText,
       created_at: mainTweetLegacy.created_at,
       metrics: {
         replies: mainTweetLegacy.reply_count,
@@ -105,7 +91,7 @@ function extractThreadInfoFromResponse(response) {
           console.log("[Thread Extractor] Reply tweet text:", replyText);
           tweets.push({
             id: tweetContent.rest_id,
-            text: cleanTweetText(replyText, tweetContent.legacy.entities),
+            text: replyText,
             created_at: tweetContent.legacy.created_at,
             metrics: {
               replies: tweetContent.legacy.reply_count,
