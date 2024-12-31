@@ -300,48 +300,98 @@ export default function ThreadPost() {
                   ?.filter((a) => a.type === "link")
                   .map((a) => a.url) || [];
 
-              // Process text to replace URLs with clickable links
-              let displayText = part.text;
-              const urlRegex = /https?:\/\/[^\s]+/g;
-              const matches = [...displayText.matchAll(urlRegex)];
+              // Remove t.co URLs that aren't link attachments
+              const tcoRegex = /https:\/\/t\.co\/\w+/g;
+              const tcoMatches = [...part.text.matchAll(tcoRegex)];
+              tcoMatches.forEach((match) => {
+                if (!linkUrls.includes(match[0])) {
+                  part.text = part.text.replace(match[0], "").trim();
+                }
+              });
 
-              if (matches.length > 0) {
-                // Create fragments with replaced URLs
+              // First handle URLs
+              const urlRegex = /https?:\/\/[^\s]+/g;
+              const urlMatches = [...part.text.matchAll(urlRegex)]
+                // Only keep URLs that are either:
+                // 1. Not t.co links
+                // 2. t.co links that correspond to actual link attachments
+                .filter((match) => {
+                  const url = match[0];
+                  if (!url.startsWith("https://t.co/")) return true;
+                  return linkUrls.includes(url);
+                });
+
+              // Then handle @mentions, ensuring they're not part of an email
+              const mentionRegex = /(?:^|\s)@(\w+)(?=[\s.,!?]|$)/g;
+              const mentionMatches = [...part.text.matchAll(mentionRegex)];
+
+              if (urlMatches.length > 0 || mentionMatches.length > 0) {
+                // Create fragments with replaced URLs and mentions
                 const fragments = [];
                 let lastIndex = 0;
 
-                matches.forEach((match, i) => {
-                  const url = match[0];
-                  // Skip if this URL has a preview card
-                  if (linkUrls.includes(url)) {
-                    displayText = displayText.replace(url, "");
-                    return;
+                // Sort matches by index to process them in order
+                const allMatches = [
+                  ...urlMatches.map((m) => ({ type: "url", match: m })),
+                  ...mentionMatches.map((m) => ({ type: "mention", match: m })),
+                ].sort((a, b) => a.match.index! - b.match.index!);
+
+                allMatches.forEach((item) => {
+                  const match = item.match;
+                  const matchText = match[0];
+
+                  if (item.type === "url") {
+                    // Skip if this URL has a preview card
+                    if (linkUrls.includes(matchText)) {
+                      part.text = part.text.replace(matchText, "");
+                      return;
+                    }
                   }
 
-                  // Add text before the URL
-                  if (match.index > lastIndex) {
-                    fragments.push(displayText.slice(lastIndex, match.index));
+                  // Add text before the match
+                  if (match.index! > lastIndex) {
+                    fragments.push(part.text.slice(lastIndex, match.index));
                   }
 
-                  // Add the URL as a link
-                  fragments.push(
-                    <a
-                      key={`link-${index}-${i}`}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-400 hover:text-blue-300 text-lg"
-                    >
-                      link
-                    </a>
-                  );
+                  // Add the match as a link
+                  if (item.type === "url") {
+                    fragments.push(
+                      <a
+                        key={`link-${index}-${match.index}`}
+                        href={matchText}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 text-lg"
+                      >
+                        {matchText}
+                      </a>
+                    );
+                  } else {
+                    // Handle @mention
+                    const username = match[1]; // Get the username without @
+                    // If there's a space before the @, add it to the fragments
+                    if (match[0].startsWith(" ")) {
+                      fragments.push(" ");
+                    }
+                    fragments.push(
+                      <a
+                        key={`mention-${index}-${match.index}`}
+                        href={`https://x.com/${username}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 text-lg"
+                      >
+                        @{username}
+                      </a>
+                    );
+                  }
 
-                  lastIndex = match.index + url.length;
+                  lastIndex = match.index! + matchText.length;
                 });
 
                 // Add any remaining text
-                if (lastIndex < displayText.length) {
-                  fragments.push(displayText.slice(lastIndex));
+                if (lastIndex < part.text.length) {
+                  fragments.push(part.text.slice(lastIndex));
                 }
 
                 return (
@@ -356,11 +406,23 @@ export default function ThreadPost() {
                 );
               }
 
-              // If no URLs, render normally
+              // If no URLs or mentions, render normally
               return (
                 <div key={index} className="prose prose-invert prose-xl">
                   <p className="whitespace-pre-wrap text-lg leading-relaxed">
-                    {displayText.trim()}
+                    {part.text
+                      .trim()
+                      .split("\n")
+                      .map((line, i) => (
+                        <span
+                          key={i}
+                          className={`block ${
+                            !line.trim() ? "leading-[1em]" : "leading-relaxed"
+                          }`}
+                        >
+                          {line || "\u00A0"}
+                        </span>
+                      ))}
                   </p>
                   {part.attachments?.map((attachment, i) => (
                     <Attachment key={i} attachment={attachment} />
