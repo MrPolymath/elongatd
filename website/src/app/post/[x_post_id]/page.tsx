@@ -211,6 +211,7 @@ export default function ThreadPost() {
                   variant="ghost"
                   size="sm"
                   className="text-gray-400 hover:text-blue-400"
+                  onClick={() => window.open(originalUrl, "_blank")}
                 >
                   <MessageCircle className="h-5 w-5 mr-1" />
                   <span>{formatNumber(total_metrics.replies)}</span>
@@ -219,6 +220,12 @@ export default function ThreadPost() {
                   variant="ghost"
                   size="sm"
                   className="text-gray-400 hover:text-green-400"
+                  onClick={() =>
+                    window.open(
+                      `https://x.com/intent/retweet?tweet_id=${postId}`,
+                      "_blank"
+                    )
+                  }
                 >
                   <Repeat2 className="h-5 w-5 mr-1" />
                   <span>{formatNumber(total_metrics.retweets)}</span>
@@ -227,6 +234,12 @@ export default function ThreadPost() {
                   variant="ghost"
                   size="sm"
                   className="text-gray-400 hover:text-pink-400"
+                  onClick={() =>
+                    window.open(
+                      `https://x.com/intent/like?tweet_id=${postId}`,
+                      "_blank"
+                    )
+                  }
                 >
                   <Heart className="h-5 w-5 mr-1" />
                   <span>{formatNumber(total_metrics.likes)}</span>
@@ -235,6 +248,7 @@ export default function ThreadPost() {
                   variant="ghost"
                   size="sm"
                   className="text-gray-400 hover:text-blue-400"
+                  onClick={() => window.open(originalUrl, "_blank")}
                 >
                   <Share className="h-5 w-5" />
                 </Button>
@@ -245,25 +259,29 @@ export default function ThreadPost() {
       </header>
 
       <main className="container max-w-4xl mx-auto px-4 py-8">
-        <article className="prose prose-invert prose-lg max-w-none">
+        <article className="prose prose-invert prose-xl max-w-none">
           {/* Author Info */}
           <div className="flex items-start gap-4 mb-8 not-prose">
-            <Avatar className="h-12 w-12">
+            <Avatar className="h-14 w-14">
               <AvatarImage src={author.profile_image_url} />
               <AvatarFallback>{author.name[0].toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="font-bold text-xl text-gray-100">
+                <h2 className="font-bold text-2xl text-gray-100">
                   {author.name}
                 </h2>
-                <span className="text-gray-400">@{author.username}</span>
+                <span className="text-gray-400 text-lg">
+                  @{author.username}
+                </span>
                 {author.verified && (
-                  <span className="text-blue-400 text-sm">✓ Verified</span>
+                  <span className="text-blue-400 text-base">✓ Verified</span>
                 )}
               </div>
-              <p className="text-gray-400 text-sm mt-1">{author.description}</p>
-              <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
+              <p className="text-gray-400 text-base mt-1">
+                {author.description}
+              </p>
+              <div className="flex items-center gap-4 mt-2 text-base text-gray-400">
                 <span>{formatNumber(author.followers_count)} followers</span>
                 <span>{author.location}</span>
                 <time>
@@ -274,7 +292,7 @@ export default function ThreadPost() {
           </div>
 
           {/* Thread Content */}
-          <div className="space-y-6">
+          <div className="space-y-8">
             {content.map((part, index) => {
               // Get URLs from link attachments
               const linkUrls =
@@ -312,7 +330,7 @@ export default function ThreadPost() {
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-400 hover:text-blue-300"
+                      className="text-blue-400 hover:text-blue-300 text-lg"
                     >
                       link
                     </a>
@@ -327,8 +345,10 @@ export default function ThreadPost() {
                 }
 
                 return (
-                  <div key={index} className="prose prose-invert prose-lg">
-                    <p className="whitespace-pre-wrap">{fragments}</p>
+                  <div key={index} className="prose prose-invert prose-xl">
+                    <p className="whitespace-pre-wrap text-lg leading-relaxed">
+                      {fragments}
+                    </p>
                     {part.attachments?.map((attachment, i) => (
                       <Attachment key={i} attachment={attachment} />
                     ))}
@@ -338,8 +358,10 @@ export default function ThreadPost() {
 
               // If no URLs, render normally
               return (
-                <div key={index} className="prose prose-invert prose-lg">
-                  <p className="whitespace-pre-wrap">{displayText.trim()}</p>
+                <div key={index} className="prose prose-invert prose-xl">
+                  <p className="whitespace-pre-wrap text-lg leading-relaxed">
+                    {displayText.trim()}
+                  </p>
                   {part.attachments?.map((attachment, i) => (
                     <Attachment key={i} attachment={attachment} />
                   ))}
@@ -351,7 +373,7 @@ export default function ThreadPost() {
 
         {/* Footer */}
         <footer className="mt-12 pt-6 border-t border-gray-800">
-          <div className="flex items-center justify-between text-sm text-gray-400">
+          <div className="flex items-center justify-between text-base text-gray-400">
             <time>
               Originally posted on{" "}
               {new Date(threadData.created_at).toLocaleDateString()}
