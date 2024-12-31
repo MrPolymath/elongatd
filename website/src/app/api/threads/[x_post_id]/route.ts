@@ -120,11 +120,11 @@ export async function GET(
         attachments: tweet.attachments as TweetAttachment[],
       })),
       total_metrics: {
-        replies: thread.total_metrics_replies,
-        retweets: thread.total_metrics_retweets,
-        likes: thread.total_metrics_likes,
-        views: thread.total_metrics_views,
-        bookmarks: thread.total_metrics_bookmarks,
+        replies: thread.total_replies,
+        retweets: thread.total_retweets,
+        likes: thread.total_likes,
+        views: 0,
+        bookmarks: 0,
       },
     };
 
@@ -173,9 +173,8 @@ export async function POST(
 
     // Store the thread data in the database
     await db.transaction(async (tx) => {
-      // Check if thread exists
       const existingThread = await tx.query.threads.findFirst({
-        where: eq(schema.threads.id, threadData.thread_id),
+        where: (threads, { eq }) => eq(threads.id, threadData.thread_id),
       });
 
       if (existingThread) {
@@ -190,26 +189,22 @@ export async function POST(
             author_description: threadData.author.description,
             author_followers_count: threadData.author.followers_count,
             author_following_count: threadData.author.following_count,
-            author_location: threadData.author.location,
-            author_url: threadData.author.url,
-            total_metrics_replies: threadData.total_metrics.replies,
-            total_metrics_retweets: threadData.total_metrics.retweets,
-            total_metrics_likes: threadData.total_metrics.likes,
-            total_metrics_views: threadData.total_metrics.views,
-            total_metrics_bookmarks: threadData.total_metrics.bookmarks,
-            updated_at: new Date(),
+            author_location: threadData.author.location || null,
+            author_url: threadData.author.url || null,
+            total_replies: threadData.total_metrics.replies,
+            total_retweets: threadData.total_metrics.retweets,
+            total_likes: threadData.total_metrics.likes,
           })
           .where(eq(schema.threads.id, threadData.thread_id));
 
-        // Delete existing tweets to replace them with updated ones
+        // Delete existing tweets
         await tx
           .delete(schema.tweets)
           .where(eq(schema.tweets.thread_id, threadData.thread_id));
       } else {
-        // Insert new thread
+        // Create new thread
         await tx.insert(schema.threads).values({
           id: threadData.thread_id,
-          created_at: new Date(threadData.created_at),
           author_id: threadData.author.id,
           author_name: threadData.author.name,
           author_username: threadData.author.username,
@@ -218,18 +213,17 @@ export async function POST(
           author_description: threadData.author.description,
           author_followers_count: threadData.author.followers_count,
           author_following_count: threadData.author.following_count,
-          author_location: threadData.author.location,
+          author_location: threadData.author.location || null,
           author_created_at: new Date(threadData.author.created_at),
-          author_url: threadData.author.url,
-          total_metrics_replies: threadData.total_metrics.replies,
-          total_metrics_retweets: threadData.total_metrics.retweets,
-          total_metrics_likes: threadData.total_metrics.likes,
-          total_metrics_views: threadData.total_metrics.views,
-          total_metrics_bookmarks: threadData.total_metrics.bookmarks,
+          author_url: threadData.author.url || null,
+          created_at: new Date(threadData.created_at),
+          total_replies: threadData.total_metrics.replies,
+          total_retweets: threadData.total_metrics.retweets,
+          total_likes: threadData.total_metrics.likes,
         });
       }
 
-      // Insert all tweets (including the first one)
+      // Insert new tweets
       await tx.insert(schema.tweets).values(
         threadData.tweets.map((tweet, index) => ({
           id: tweet.id,

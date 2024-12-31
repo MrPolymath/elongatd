@@ -25,11 +25,9 @@ export const threads = pgTable("threads", {
   author_url: text("author_url"),
 
   // Total metrics for the thread
-  total_metrics_replies: integer("total_metrics_replies").notNull(),
-  total_metrics_retweets: integer("total_metrics_retweets").notNull(),
-  total_metrics_likes: integer("total_metrics_likes").notNull(),
-  total_metrics_views: integer("total_metrics_views").notNull(),
-  total_metrics_bookmarks: integer("total_metrics_bookmarks").notNull(),
+  total_replies: integer("replies_count").notNull(),
+  total_retweets: integer("retweets_count").notNull(),
+  total_likes: integer("likes_count").notNull(),
 
   // System fields
   updated_at: timestamp("updated_at").defaultNow().notNull(),

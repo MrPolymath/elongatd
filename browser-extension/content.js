@@ -49,7 +49,8 @@ function extractThreadInfoFromResponse(response) {
       name: user.name,
       username: user.screen_name,
       profile_image_url: user.profile_image_url_https,
-      verified: user.verified || user.is_blue_verified || false,
+      verified:
+        mainTweetContent.core.user_results.result.is_blue_verified || false,
       description: user.description || "",
       followers_count: user.followers_count || 0,
       following_count: user.friends_count || 0,
@@ -170,23 +171,30 @@ function extractTweetInfo(tweetContent) {
 }
 
 function extractAttachments(tweet) {
+  console.log("[Thread Extractor] Extracting attachments from tweet:", {
+    hasExtendedEntities: !!tweet.legacy?.extended_entities,
+    hasCard: !!tweet.card,
+    tweetData: tweet,
+  });
+
   const attachments = [];
 
   // Extract media (images and videos)
   if (tweet.legacy?.extended_entities?.media) {
+    console.log(
+      "[Thread Extractor] Found media attachments:",
+      tweet.legacy.extended_entities.media
+    );
     tweet.legacy.extended_entities.media.forEach((media) => {
       if (media.type === "photo") {
+        console.log("[Thread Extractor] Processing photo:", media);
         attachments.push({
           type: "image",
           url: media.media_url_https,
           original_url: media.url,
         });
       } else if (media.type === "video") {
-        console.log(
-          "[Thread Extractor] Processing video variants:",
-          media.video_info.variants
-        );
-
+        console.log("[Thread Extractor] Processing video:", media);
         // Filter to only MP4s and sort by bitrate
         const mp4Variants = media.video_info.variants.filter(
           (v) => v.content_type === "video/mp4"
@@ -234,6 +242,10 @@ function extractAttachments(tweet) {
 
   // Extract card/link preview
   if (tweet.card?.legacy?.binding_values) {
+    console.log(
+      "[Thread Extractor] Found card:",
+      tweet.card.legacy.binding_values
+    );
     const values = tweet.card.legacy.binding_values.reduce(
       (acc, { key, value }) => {
         acc[key] = value.string_value;
@@ -243,6 +255,7 @@ function extractAttachments(tweet) {
     );
 
     if (values.title || values.description) {
+      console.log("[Thread Extractor] Adding link attachment:", values);
       attachments.push({
         type: "link",
         title: values.title,
@@ -252,6 +265,7 @@ function extractAttachments(tweet) {
     }
   }
 
+  console.log("[Thread Extractor] Final attachments:", attachments);
   return attachments;
 }
 
