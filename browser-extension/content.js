@@ -23,68 +23,77 @@ function extractThreadInfoFromResponse(response) {
     }
 
     const tweets = [];
-    let mainTweet = null;
+    let authorInfo = null;
 
-    // Process each entry
-    data.entries.forEach((entry) => {
-      if (!entry.content || !entry.content.itemContent) return;
+    // Find main tweet and thread entries
+    const mainTweetEntry = data.entries.find((e) =>
+      e.entryId.startsWith("tweet-")
+    );
+    const threadEntry = data.entries.find((e) =>
+      e.entryId.startsWith("conversationthread-")
+    );
 
-      const tweetContent = entry.content.itemContent.tweet_results?.result;
-      if (!tweetContent) return;
+    if (!mainTweetEntry) {
+      throw new Error("Main tweet not found in response");
+    }
 
-      const tweet = {
-        id: tweetContent.rest_id,
-        text: tweetContent.legacy.full_text,
-        created_at: tweetContent.legacy.created_at,
-        metrics: {
-          replies: tweetContent.legacy.reply_count,
-          retweets: tweetContent.legacy.retweet_count,
-          likes: tweetContent.legacy.favorite_count,
-          views: tweetContent.views?.count,
-          bookmarks: tweetContent.legacy.bookmark_count,
-        },
-        user: {
-          id: tweetContent.core.user_results.result.rest_id,
-          name: tweetContent.core.user_results.result.legacy.name,
-          username: tweetContent.core.user_results.result.legacy.screen_name,
-          profile_image_url:
-            tweetContent.core.user_results.result.legacy
-              .profile_image_url_https,
-        },
-        attachments: [],
-      };
+    // Process main tweet
+    const mainTweetContent =
+      mainTweetEntry.content.itemContent.tweet_results.result;
+    const mainTweetLegacy = mainTweetContent.legacy;
+    const user = mainTweetContent.core.user_results.result.legacy;
 
-      // Extract media attachments
-      if (tweetContent.legacy.extended_entities?.media) {
-        tweetContent.legacy.extended_entities.media.forEach((media) => {
-          const attachment = {
-            type: media.type,
-            url: media.media_url_https,
-          };
+    // Set author info from main tweet
+    authorInfo = {
+      id: mainTweetContent.core.user_results.result.rest_id,
+      name: user.name,
+      username: user.screen_name,
+      profile_image_url: user.profile_image_url_https,
+      verified: user.verified || user.is_blue_verified || false,
+      description: user.description || "",
+      followers_count: user.followers_count || 0,
+      following_count: user.friends_count || 0,
+      location: user.location || "",
+      created_at: user.created_at,
+      url: user.url || "",
+    };
 
-          if (media.type === "video") {
-            attachment.video_info = {
-              duration_millis: media.video_info.duration_millis,
-              variants: media.video_info.variants,
-            };
-          }
+    // Add main tweet
+    tweets.push(extractTweetInfo(mainTweetContent));
 
-          tweet.attachments.push(attachment);
-        });
-      }
+    // Process thread replies if they exist
+    if (threadEntry && threadEntry.content.items) {
+      threadEntry.content.items.forEach((item) => {
+        if (!item.item?.itemContent?.tweet_results?.result) return;
+        const tweetContent = item.item.itemContent.tweet_results.result;
 
-      // If this is the first tweet, it's the main tweet
-      if (!mainTweet) {
-        mainTweet = tweet;
-      } else {
-        tweets.push(tweet);
-      }
-    });
+        // Only include tweets from the same author
+        if (tweetContent.core.user_results.result.rest_id === authorInfo.id) {
+          tweets.push(extractTweetInfo(tweetContent));
+        }
+      });
+    }
+
+    // Sort tweets by creation date
+    tweets.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
     const result = {
-      mainTweet,
-      replies: tweets,
+      author: authorInfo,
+      thread_id: tweets[0].id,
+      created_at: tweets[0].created_at,
+      tweets: tweets,
+      total_metrics: {
+        replies: tweets.reduce((sum, t) => sum + t.metrics.replies, 0),
+        retweets: tweets.reduce((sum, t) => sum + t.metrics.retweets, 0),
+        likes: tweets.reduce((sum, t) => sum + t.metrics.likes, 0),
+        views: tweets.reduce(
+          (sum, t) => sum + (parseInt(t.metrics.views) || 0),
+          0
+        ),
+        bookmarks: tweets.reduce((sum, t) => sum + t.metrics.bookmarks, 0),
+      },
     };
+
     console.log(
       "[Thread Extractor] Successfully extracted thread info:",
       result
@@ -94,6 +103,50 @@ function extractThreadInfoFromResponse(response) {
     console.error("[Thread Extractor] Error extracting thread info:", error);
     throw error;
   }
+}
+
+// Helper function to extract tweet information
+function extractTweetInfo(tweetContent) {
+  const legacy = tweetContent.legacy;
+
+  const tweet = {
+    id: tweetContent.rest_id,
+    text: legacy.full_text,
+    created_at: legacy.created_at,
+    metrics: {
+      replies: legacy.reply_count,
+      retweets: legacy.retweet_count,
+      likes: legacy.favorite_count,
+      views: tweetContent.views?.count || 0,
+      bookmarks: legacy.bookmark_count || 0,
+    },
+    attachments: [],
+  };
+
+  // Extract media attachments
+  if (legacy.extended_entities?.media) {
+    legacy.extended_entities.media.forEach((media) => {
+      const attachment = {
+        type: media.type,
+        url: media.media_url_https,
+      };
+
+      if (media.type === "video") {
+        attachment.video_info = {
+          duration_millis: media.video_info.duration_millis,
+          variants: media.video_info.variants.map((v) => ({
+            bitrate: v.bitrate,
+            content_type: v.content_type,
+            url: v.url,
+          })),
+        };
+      }
+
+      tweet.attachments.push(attachment);
+    });
+  }
+
+  return tweet;
 }
 
 // Function to send data to our API
