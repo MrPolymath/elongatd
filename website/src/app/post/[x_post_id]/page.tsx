@@ -153,6 +153,13 @@ export default function ThreadPost() {
   const [viewMode, setViewMode] = useState<"thread" | "blog">("thread");
 
   useEffect(() => {
+    // Get view parameter from URL
+    const searchParams = new URLSearchParams(window.location.search);
+    const viewParam = searchParams.get("view");
+    if (viewParam === "blog" || viewParam === "thread") {
+      setViewMode(viewParam);
+    }
+
     const fetchThreadData = async () => {
       try {
         const response = await fetch(`/api/threads/${postId}`);
@@ -162,12 +169,18 @@ export default function ThreadPost() {
         const data = await response.json();
         setThreadData(data);
 
-        // Check if blogified version exists
+        // Always check if blog version exists
         const blogResponse = await fetch(`/api/threads/${postId}/blogify`);
         if (blogResponse.ok) {
           const blogData = await blogResponse.json();
           setBlogifiedContent(blogData.content);
-          setViewMode("blog");
+          // Only set view mode to blog if that's what was requested
+          if (viewParam === "blog") {
+            setViewMode("blog");
+          }
+        } else if (viewParam === "blog") {
+          // If blog view was requested but doesn't exist, switch to thread view
+          setViewMode("thread");
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
@@ -180,6 +193,15 @@ export default function ThreadPost() {
   }, [postId]);
 
   const handleBlogify = async () => {
+    if (blogifiedContent) {
+      // If we already have blog content, just switch the view
+      setViewMode("blog");
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", "blog");
+      window.history.pushState({}, "", url.toString());
+      return;
+    }
+
     setBlogifyLoading(true);
     setBlogifyError(null);
     try {
@@ -191,11 +213,23 @@ export default function ThreadPost() {
       const data = await response.json();
       setBlogifiedContent(data.content);
       setViewMode("blog");
+      // Update URL without reloading the page
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", "blog");
+      window.history.pushState({}, "", url.toString());
     } catch (err) {
       setBlogifyError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setBlogifyLoading(false);
     }
+  };
+
+  const switchToThreadView = () => {
+    setViewMode("thread");
+    // Update URL without reloading the page
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "thread");
+    window.history.pushState({}, "", url.toString());
   };
 
   if (loading) {
@@ -235,29 +269,30 @@ export default function ThreadPost() {
       {/* Sticky Header with Metrics */}
       <header className="sticky top-0 z-10 bg-gray-900/80 backdrop-blur-sm border-b border-gray-800">
         <div className="container max-w-4xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            {/* X Origin Link */}
+          <div className="flex items-center justify-between h-14">
+            {/* Left side: X Origin Link */}
             <Link
               href={originalUrl}
-              className="flex items-center gap-3 text-gray-400 hover:text-gray-100"
+              className="flex items-center gap-2 text-gray-300 hover:text-white"
               target="_blank"
               rel="noopener noreferrer"
             >
               <XLogo />
-              <span className="text-base">View original thread</span>
+              <span className="text-[15px]">View original</span>
             </Link>
 
-            {/* View Mode Selector */}
-            <div className="flex items-center gap-2 bg-gray-900 rounded-lg p-1 ring-1 ring-gray-800">
+            {/* Center: View Mode Selector */}
+            <div className="flex items-center gap-1 bg-gray-900/50 rounded-full p-0.5 ring-1 ring-gray-700">
               <Button
                 variant="ghost"
                 size="sm"
                 className={`${
                   viewMode === "thread"
-                    ? "bg-gradient-to-r from-purple-500/50 to-blue-500/50 text-white shadow-sm"
-                    : "text-gray-400 hover:text-gray-200"
-                } transition-all duration-200 rounded-md`}
-                onClick={() => setViewMode("thread")}
+                    ? "bg-gradient-to-r from-purple-500/50 to-blue-500/50 text-white"
+                    : "text-gray-300 hover:bg-gray-800/70 hover:text-white"
+                } transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium`}
+                onClick={switchToThreadView}
+                disabled={viewMode === "thread"}
               >
                 Thread View
               </Button>
@@ -267,10 +302,11 @@ export default function ThreadPost() {
                   size="sm"
                   className={`${
                     viewMode === "blog"
-                      ? "bg-gradient-to-r from-purple-500/50 to-blue-500/50 text-white shadow-sm"
-                      : "text-gray-400 hover:text-gray-200"
-                  } transition-all duration-200 rounded-md`}
-                  onClick={() => setViewMode("blog")}
+                      ? "bg-gradient-to-r from-purple-500/50 to-blue-500/50 text-white"
+                      : "text-gray-300 hover:bg-gray-800/70 hover:text-white"
+                  } transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium`}
+                  onClick={handleBlogify}
+                  disabled={viewMode === "blog"}
                 >
                   Blog View
                 </Button>
@@ -278,7 +314,7 @@ export default function ThreadPost() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-gray-400 hover:bg-gradient-to-r hover:from-purple-500/40 hover:to-blue-500/40 hover:text-white transition-all duration-200 rounded-md"
+                  className="text-gray-300 hover:bg-gray-800/70 hover:text-white transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium"
                   onClick={handleBlogify}
                   disabled={blogifyLoading}
                 >
@@ -291,21 +327,21 @@ export default function ThreadPost() {
               )}
             </div>
 
-            {/* Interaction Metrics */}
-            <div className="flex items-center gap-4">
+            {/* Right side: Interaction Metrics */}
+            <div className="flex items-center gap-6">
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-gray-400 hover:text-blue-400 text-base"
+                className="text-gray-300 hover:text-blue-400 text-[15px] h-auto px-2 py-1.5 rounded-full font-normal group"
                 onClick={() => window.open(originalUrl, "_blank")}
               >
-                <MessageCircle className="h-6 w-6 mr-2" />
+                <MessageCircle className="h-6 w-6 mr-0.5 group-hover:bg-blue-400/10 rounded-full transition-colors" />
                 <span>{formatNumber(total_metrics.replies)}</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-gray-400 hover:text-green-400 text-base"
+                className="text-gray-300 hover:text-green-400 text-[15px] h-auto px-2 py-1.5 rounded-full font-normal group"
                 onClick={() =>
                   window.open(
                     `https://x.com/intent/retweet?tweet_id=${postId}`,
@@ -313,13 +349,13 @@ export default function ThreadPost() {
                   )
                 }
               >
-                <Repeat2 className="h-6 w-6 mr-2" />
+                <Repeat2 className="h-6 w-6 mr-0.5 group-hover:bg-green-400/10 rounded-full transition-colors" />
                 <span>{formatNumber(total_metrics.retweets)}</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-gray-400 hover:text-pink-400 text-base"
+                className="text-gray-300 hover:text-pink-400 text-[15px] h-auto px-2 py-1.5 rounded-full font-normal group"
                 onClick={() =>
                   window.open(
                     `https://x.com/intent/like?tweet_id=${postId}`,
@@ -327,16 +363,16 @@ export default function ThreadPost() {
                   )
                 }
               >
-                <Heart className="h-6 w-6 mr-2" />
+                <Heart className="h-6 w-6 mr-0.5 group-hover:bg-pink-400/10 rounded-full transition-colors" />
                 <span>{formatNumber(total_metrics.likes)}</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-gray-400 hover:text-blue-400"
+                className="text-gray-300 hover:text-blue-400 h-auto p-2 rounded-full group"
                 onClick={() => window.open(originalUrl, "_blank")}
               >
-                <Share className="h-6 w-6" />
+                <Share className="h-6 w-6 group-hover:bg-blue-400/10 rounded-full transition-colors" />
               </Button>
             </div>
           </div>

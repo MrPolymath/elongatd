@@ -1,12 +1,123 @@
 // Store the last TweetDetail response
 let lastTweetDetail = null;
+let notificationTimeout = null;
 
 console.log("[Thread Extractor] Content script loaded");
+
+// Helper function to make API requests through background script
+async function makeAPIRequest(url) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ type: "API_REQUEST", url }, (response) => {
+      if (response.success) {
+        resolve(response.data);
+      } else {
+        reject(new Error(response.error));
+      }
+    });
+  });
+}
+
+// Create notification element
+function createNotification() {
+  const notification = document.createElement("div");
+  notification.className = "elongatd-notification hidden";
+  notification.innerHTML = `
+    <div class="elongatd-notification-header">
+      <h3 class="elongatd-notification-title">View in Elongatd</h3>
+      <button class="elongatd-notification-close">×</button>
+    </div>
+    <div class="elongatd-notification-content">
+      This thread is available in a better format on Elongatd.
+    </div>
+    <div class="elongatd-notification-actions">
+      <a href="#" class="elongatd-notification-button primary" id="view-thread">View Thread</a>
+      <a href="#" class="elongatd-notification-button secondary hidden" id="view-blog">Read Blog</a>
+    </div>
+  `;
+
+  document.body.appendChild(notification);
+  return notification;
+}
+
+// Show notification with appropriate buttons
+function showNotification(postId, hasBlog = false) {
+  let notification = document.querySelector(".elongatd-notification");
+  if (!notification) {
+    notification = createNotification();
+  }
+
+  // Clear any existing timeout
+  if (notificationTimeout) {
+    clearTimeout(notificationTimeout);
+  }
+
+  const baseUrl = window.config.apiBaseUrl.replace("/api/threads", "");
+
+  // Update notification content
+  const blogButton = notification.querySelector("#view-blog");
+  if (hasBlog) {
+    blogButton.classList.remove("hidden");
+    blogButton.href = `${baseUrl}/post/${postId}`;
+  } else {
+    blogButton.classList.add("hidden");
+  }
+
+  // Update thread button
+  const threadButton = notification.querySelector("#view-thread");
+  threadButton.href = `${baseUrl}/thread/${postId}`;
+
+  // Show notification
+  notification.classList.remove("hidden");
+
+  // Add event listeners
+  const closeButton = notification.querySelector(
+    ".elongatd-notification-close"
+  );
+  closeButton.onclick = () => {
+    notification.classList.add("hidden");
+  };
+
+  // Auto-hide after 5 seconds
+  notificationTimeout = setTimeout(() => {
+    notification.classList.add("hidden");
+  }, 5000);
+}
+
+// Check if thread exists and show notification
+async function checkThreadAndNotify(postId) {
+  try {
+    // Check if thread exists in our system
+    const existsData = await makeAPIRequest(
+      `${window.config.apiBaseUrl}/${postId}/exists`
+    );
+
+    if (existsData.exists) {
+      try {
+        // Check if blog version exists
+        const blogData = await makeAPIRequest(
+          `${window.config.apiBaseUrl}/${postId}/blogify`
+        );
+        showNotification(postId, !blogData.error);
+      } catch (error) {
+        // If blogify fails, still show the thread notification
+        showNotification(postId, false);
+      }
+    }
+  } catch (error) {
+    console.error("[Thread Extractor] Error checking thread:", error);
+  }
+}
 
 // Listen for the tweet detail event
 window.addEventListener("tweet_detail_captured", function (event) {
   console.log("[Thread Extractor] Tweet detail captured:", event.detail.data);
   lastTweetDetail = event.detail.data;
+
+  // Get post ID from URL
+  const postId = window.location.pathname.split("/status/")[1]?.split("/")[0];
+  if (postId) {
+    checkThreadAndNotify(postId);
+  }
 });
 
 // Function to extract thread information from API response
