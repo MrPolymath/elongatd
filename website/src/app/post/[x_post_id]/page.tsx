@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { MarkdownWithMedia } from "@/components/markdown-with-media";
 
 // Types for our thread data
 interface Metrics {
@@ -160,6 +161,14 @@ export default function ThreadPost() {
         }
         const data = await response.json();
         setThreadData(data);
+
+        // Check if blogified version exists
+        const blogResponse = await fetch(`/api/threads/${postId}/blogify`);
+        if (blogResponse.ok) {
+          const blogData = await blogResponse.json();
+          setBlogifiedContent(blogData.content);
+          setViewMode("blog");
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
@@ -239,15 +248,15 @@ export default function ThreadPost() {
             </Link>
 
             {/* View Mode Selector */}
-            <div className="flex items-center gap-2 bg-gray-800/50 rounded-lg p-1">
+            <div className="flex items-center gap-2 bg-gray-900 rounded-lg p-1 ring-1 ring-gray-800">
               <Button
                 variant="ghost"
                 size="sm"
                 className={`${
                   viewMode === "thread"
-                    ? "bg-gray-700 text-gray-100"
-                    : "text-gray-400 hover:text-gray-100"
-                }`}
+                    ? "bg-gradient-to-r from-purple-500/50 to-blue-500/50 text-white shadow-sm"
+                    : "text-gray-400 hover:text-gray-200"
+                } transition-all duration-200 rounded-md`}
                 onClick={() => setViewMode("thread")}
               >
                 Thread View
@@ -258,9 +267,9 @@ export default function ThreadPost() {
                   size="sm"
                   className={`${
                     viewMode === "blog"
-                      ? "bg-gray-700 text-gray-100"
-                      : "text-gray-400 hover:text-gray-100"
-                  }`}
+                      ? "bg-gradient-to-r from-purple-500/50 to-blue-500/50 text-white shadow-sm"
+                      : "text-gray-400 hover:text-gray-200"
+                  } transition-all duration-200 rounded-md`}
                   onClick={() => setViewMode("blog")}
                 >
                   Blog View
@@ -269,7 +278,7 @@ export default function ThreadPost() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-gray-400 hover:text-purple-400"
+                  className="text-gray-400 hover:bg-gradient-to-r hover:from-purple-500/40 hover:to-blue-500/40 hover:text-white transition-all duration-200 rounded-md"
                   onClick={handleBlogify}
                   disabled={blogifyLoading}
                 >
@@ -456,9 +465,29 @@ export default function ThreadPost() {
           {/* Thread Content */}
           {viewMode === "blog" && blogifiedContent ? (
             <div className="prose prose-invert prose-xl">
-              <div className="whitespace-pre-wrap text-lg leading-relaxed">
-                {blogifiedContent}
-              </div>
+              {(() => {
+                try {
+                  console.log("Received blog content:", blogifiedContent);
+                  // Parse the response - it's already a JSON string from the database
+                  const blogPost = JSON.parse(blogifiedContent);
+                  console.log("Parsed blog post:", blogPost);
+
+                  return (
+                    <MarkdownWithMedia
+                      content={blogPost}
+                      media={blogPost.media || {}}
+                    />
+                  );
+                } catch (error) {
+                  console.error("Error parsing blog content:", error);
+                  console.error("Raw content:", blogifiedContent);
+                  return (
+                    <div className="text-red-400">
+                      Error displaying blog content. Please try again.
+                    </div>
+                  );
+                }
+              })()}
               {blogifyError && (
                 <div className="text-red-400 mt-4">{blogifyError}</div>
               )}
