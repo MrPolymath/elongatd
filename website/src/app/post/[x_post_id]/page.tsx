@@ -146,6 +146,10 @@ export default function ThreadPost() {
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [blogifiedContent, setBlogifiedContent] = useState<string | null>(null);
+  const [blogifyLoading, setBlogifyLoading] = useState(false);
+  const [blogifyError, setBlogifyError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"thread" | "blog">("thread");
 
   useEffect(() => {
     const fetchThreadData = async () => {
@@ -165,6 +169,25 @@ export default function ThreadPost() {
 
     fetchThreadData();
   }, [postId]);
+
+  const handleBlogify = async () => {
+    setBlogifyLoading(true);
+    setBlogifyError(null);
+    try {
+      const response = await fetch(`/api/threads/${postId}/blogify`);
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to blogify thread");
+      }
+      const data = await response.json();
+      setBlogifiedContent(data.content);
+      setViewMode("blog");
+    } catch (err) {
+      setBlogifyError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setBlogifyLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -215,55 +238,97 @@ export default function ThreadPost() {
               <span className="text-base">View original thread</span>
             </Link>
 
+            {/* View Mode Selector */}
+            <div className="flex items-center gap-2 bg-gray-800/50 rounded-lg p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`${
+                  viewMode === "thread"
+                    ? "bg-gray-700 text-gray-100"
+                    : "text-gray-400 hover:text-gray-100"
+                }`}
+                onClick={() => setViewMode("thread")}
+              >
+                Thread View
+              </Button>
+              {blogifiedContent ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`${
+                    viewMode === "blog"
+                      ? "bg-gray-700 text-gray-100"
+                      : "text-gray-400 hover:text-gray-100"
+                  }`}
+                  onClick={() => setViewMode("blog")}
+                >
+                  Blog View
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-400 hover:text-purple-400"
+                  onClick={handleBlogify}
+                  disabled={blogifyLoading}
+                >
+                  {blogifyLoading ? (
+                    <span>Converting...</span>
+                  ) : (
+                    <span>Convert to Blog</span>
+                  )}
+                </Button>
+              )}
+            </div>
+
             {/* Interaction Metrics */}
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-400 hover:text-blue-400 text-base"
-                  onClick={() => window.open(originalUrl, "_blank")}
-                >
-                  <MessageCircle className="h-6 w-6 mr-2" />
-                  <span>{formatNumber(total_metrics.replies)}</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-400 hover:text-green-400 text-base"
-                  onClick={() =>
-                    window.open(
-                      `https://x.com/intent/retweet?tweet_id=${postId}`,
-                      "_blank"
-                    )
-                  }
-                >
-                  <Repeat2 className="h-6 w-6 mr-2" />
-                  <span>{formatNumber(total_metrics.retweets)}</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-400 hover:text-pink-400 text-base"
-                  onClick={() =>
-                    window.open(
-                      `https://x.com/intent/like?tweet_id=${postId}`,
-                      "_blank"
-                    )
-                  }
-                >
-                  <Heart className="h-6 w-6 mr-2" />
-                  <span>{formatNumber(total_metrics.likes)}</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-400 hover:text-blue-400"
-                  onClick={() => window.open(originalUrl, "_blank")}
-                >
-                  <Share className="h-6 w-6" />
-                </Button>
-              </div>
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-blue-400 text-base"
+                onClick={() => window.open(originalUrl, "_blank")}
+              >
+                <MessageCircle className="h-6 w-6 mr-2" />
+                <span>{formatNumber(total_metrics.replies)}</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-green-400 text-base"
+                onClick={() =>
+                  window.open(
+                    `https://x.com/intent/retweet?tweet_id=${postId}`,
+                    "_blank"
+                  )
+                }
+              >
+                <Repeat2 className="h-6 w-6 mr-2" />
+                <span>{formatNumber(total_metrics.retweets)}</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-pink-400 text-base"
+                onClick={() =>
+                  window.open(
+                    `https://x.com/intent/like?tweet_id=${postId}`,
+                    "_blank"
+                  )
+                }
+              >
+                <Heart className="h-6 w-6 mr-2" />
+                <span>{formatNumber(total_metrics.likes)}</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-blue-400"
+                onClick={() => window.open(originalUrl, "_blank")}
+              >
+                <Share className="h-6 w-6" />
+              </Button>
             </div>
           </div>
         </div>
@@ -279,39 +344,38 @@ export default function ThreadPost() {
               rel="noopener noreferrer"
               className="group flex items-start gap-5 hover:opacity-90 transition-opacity"
             >
-              <Avatar className="h-16 w-16 rounded-full ring-2 ring-blue-500/20">
+              <Avatar className="h-16 w-16 ring-2 ring-blue-400">
                 <AvatarImage src={author.profile_image_url} />
-                <AvatarFallback>{author.name[0].toUpperCase()}</AvatarFallback>
+                <AvatarFallback>
+                  {author.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h2 className="font-bold text-2xl text-gray-100 truncate group-hover:text-blue-400 transition-colors">
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-xl font-semibold truncate">
                     {author.name}
                   </h2>
                   {author.verified && (
-                    <svg viewBox="0 0 22 22" className="h-6 w-6 text-[#1d9bf0]">
-                      <path
-                        fill="currentColor"
-                        d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"
-                      />
-                    </svg>
+                    <div className="h-5 w-5 text-blue-400">
+                      <svg viewBox="0 0 22 22" aria-label="Verified account">
+                        <path
+                          fill="currentColor"
+                          d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"
+                        />
+                      </svg>
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-gray-400">@{author.username}</span>
-                  {author.location && (
-                    <>
-                      <span className="text-gray-600">·</span>
-                      <span className="text-gray-400">{author.location}</span>
-                    </>
-                  )}
-                </div>
+                <p className="text-gray-400 truncate">@{author.username}</p>
               </div>
             </Link>
 
             <div className="space-y-4">
               {author.description && (
-                <p className="text-gray-300 text-base leading-relaxed">
+                <p className="text-gray-100 text-base leading-normal">
                   {(() => {
                     const urlRegex = /https?:\/\/[^\s]+/g;
                     const matches = [...author.description.matchAll(urlRegex)];
@@ -390,170 +454,185 @@ export default function ThreadPost() {
           </div>
 
           {/* Thread Content */}
-          <div className="space-y-8">
-            {content.map((part, index) => {
-              // Get URLs from link attachments
-              const linkUrls =
-                part.attachments
-                  ?.filter((a) => a.type === "link")
-                  .map((a) => a.url) || [];
+          {viewMode === "blog" && blogifiedContent ? (
+            <div className="prose prose-invert prose-xl">
+              <div className="whitespace-pre-wrap text-lg leading-relaxed">
+                {blogifiedContent}
+              </div>
+              {blogifyError && (
+                <div className="text-red-400 mt-4">{blogifyError}</div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {content.map((part, index) => {
+                // Get URLs from link attachments
+                const linkUrls =
+                  part.attachments
+                    ?.filter((a) => a.type === "link")
+                    .map((a) => a.url) || [];
 
-              // Remove t.co URLs that aren't link attachments
-              const tcoRegex = /https:\/\/t\.co\/\w+/g;
-              const tcoMatches = [...part.text.matchAll(tcoRegex)];
-              tcoMatches.forEach((match) => {
-                if (!linkUrls.includes(match[0])) {
-                  part.text = part.text.replace(match[0], "").trim();
-                }
-              });
-
-              // First handle URLs
-              const urlRegex = /https?:\/\/[^\s]+/g;
-              const urlMatches = [...part.text.matchAll(urlRegex)]
-                // Only keep URLs that are either:
-                // 1. Not t.co links
-                // 2. t.co links that correspond to actual link attachments
-                .filter((match) => {
-                  const url = match[0];
-                  if (!url.startsWith("https://t.co/")) return true;
-                  return linkUrls.includes(url);
+                // Remove t.co URLs that aren't link attachments
+                const tcoRegex = /https:\/\/t\.co\/\w+/g;
+                const tcoMatches = [...part.text.matchAll(tcoRegex)];
+                tcoMatches.forEach((match) => {
+                  if (!linkUrls.includes(match[0])) {
+                    part.text = part.text.replace(match[0], "").trim();
+                  }
                 });
 
-              // Then handle @mentions, ensuring they're not part of an email
-              const mentionRegex = /(?:^|\s)@(\w+)(?=[\s.,!?]|$)/g;
-              const mentionMatches = [...part.text.matchAll(mentionRegex)];
+                // First handle URLs
+                const urlRegex = /https?:\/\/[^\s]+/g;
+                const urlMatches = [...part.text.matchAll(urlRegex)]
+                  // Only keep URLs that are either:
+                  // 1. Not t.co links
+                  // 2. t.co links that correspond to actual link attachments
+                  .filter((match) => {
+                    const url = match[0];
+                    if (!url.startsWith("https://t.co/")) return true;
+                    return linkUrls.includes(url);
+                  });
 
-              if (urlMatches.length > 0 || mentionMatches.length > 0) {
-                // Create fragments with replaced URLs and mentions
-                const fragments = [];
-                let lastIndex = 0;
+                // Then handle @mentions, ensuring they're not part of an email
+                const mentionRegex = /(?:^|\s)@(\w+)(?=[\s.,!?]|$)/g;
+                const mentionMatches = [...part.text.matchAll(mentionRegex)];
 
-                // Sort matches by index to process them in order
-                const allMatches = [
-                  ...urlMatches.map((m) => ({ type: "url", match: m })),
-                  ...mentionMatches.map((m) => ({ type: "mention", match: m })),
-                ].sort((a, b) => a.match.index! - b.match.index!);
+                if (urlMatches.length > 0 || mentionMatches.length > 0) {
+                  // Create fragments with replaced URLs and mentions
+                  const fragments = [];
+                  let lastIndex = 0;
 
-                allMatches.forEach((item) => {
-                  const match = item.match;
-                  const matchText = match[0];
+                  // Sort matches by index to process them in order
+                  const allMatches = [
+                    ...urlMatches.map((m) => ({ type: "url", match: m })),
+                    ...mentionMatches.map((m) => ({
+                      type: "mention",
+                      match: m,
+                    })),
+                  ].sort((a, b) => a.match.index! - b.match.index!);
 
-                  if (item.type === "url") {
-                    // Skip if this URL has a preview card
-                    if (linkUrls.includes(matchText)) {
-                      part.text = part.text.replace(matchText, "");
-                      return;
+                  allMatches.forEach((item) => {
+                    const match = item.match;
+                    const matchText = match[0];
+
+                    if (item.type === "url") {
+                      // Skip if this URL has a preview card
+                      if (linkUrls.includes(matchText)) {
+                        part.text = part.text.replace(matchText, "");
+                        return;
+                      }
                     }
-                  }
 
-                  // Add text before the match
-                  if (match.index! > lastIndex) {
-                    fragments.push(part.text.slice(lastIndex, match.index));
-                  }
-
-                  // Add the match as a link
-                  if (item.type === "url") {
-                    fragments.push(
-                      <a
-                        key={`link-${index}-${match.index}`}
-                        href={matchText}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 text-lg"
-                      >
-                        {matchText}
-                      </a>
-                    );
-                  } else {
-                    // Handle @mention
-                    const username = match[1]; // Get the username without @
-                    // If there's a space before the @, add it to the fragments
-                    if (match[0].startsWith(" ")) {
-                      fragments.push(" ");
+                    // Add text before the match
+                    if (match.index! > lastIndex) {
+                      fragments.push(part.text.slice(lastIndex, match.index));
                     }
-                    fragments.push(
-                      <a
-                        key={`mention-${index}-${match.index}`}
-                        href={`https://x.com/${username}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 text-lg"
-                      >
-                        @{username}
-                      </a>
-                    );
+
+                    // Add the match as a link
+                    if (item.type === "url") {
+                      fragments.push(
+                        <a
+                          key={`link-${index}-${match.index}`}
+                          href={matchText}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 text-lg"
+                        >
+                          {matchText}
+                        </a>
+                      );
+                    } else {
+                      // Handle @mention
+                      const username = match[1]; // Get the username without @
+                      // If there's a space before the @, add it to the fragments
+                      if (match[0].startsWith(" ")) {
+                        fragments.push(" ");
+                      }
+                      fragments.push(
+                        <a
+                          key={`mention-${index}-${match.index}`}
+                          href={`https://x.com/${username}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 text-lg"
+                        >
+                          @{username}
+                        </a>
+                      );
+                    }
+
+                    lastIndex = match.index! + matchText.length;
+                  });
+
+                  // Add any remaining text
+                  if (lastIndex < part.text.length) {
+                    fragments.push(part.text.slice(lastIndex));
                   }
 
-                  lastIndex = match.index! + matchText.length;
-                });
-
-                // Add any remaining text
-                if (lastIndex < part.text.length) {
-                  fragments.push(part.text.slice(lastIndex));
+                  return (
+                    <div key={index} className="prose prose-invert prose-xl">
+                      <p className="whitespace-pre-wrap text-lg leading-relaxed">
+                        {fragments}
+                      </p>
+                      {part.attachments?.map((attachment, i) => (
+                        <Attachment key={i} attachment={attachment} />
+                      ))}
+                    </div>
+                  );
                 }
 
+                // If no URLs or mentions, render normally
                 return (
                   <div key={index} className="prose prose-invert prose-xl">
-                    <p className="whitespace-pre-wrap text-lg leading-relaxed">
-                      {fragments}
-                    </p>
-                    {part.attachments?.map((attachment, i) => (
-                      <Attachment key={i} attachment={attachment} />
-                    ))}
-                  </div>
-                );
-              }
-
-              // If no URLs or mentions, render normally
-              return (
-                <div key={index} className="prose prose-invert prose-xl">
-                  <div className="relative flow-root">
-                    {part.attachments?.some(
-                      (a) => a.type === "image" || a.type === "video"
-                    ) && (
-                      <div className="lg:float-right lg:ml-6 lg:w-[40%] mb-4">
-                        {part.attachments?.map((attachment, i) => (
-                          <Attachment key={i} attachment={attachment} />
-                        ))}
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      {part.text
-                        .replace(
-                          /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/gi,
-                          (match) => {
-                            const textarea = document.createElement("textarea");
-                            textarea.innerHTML = match;
-                            return textarea.value;
-                          }
-                        )
-                        .trim()
-                        .split("\n")
-                        .map((line, i) => (
-                          <span
-                            key={i}
-                            className={`block text-lg ${
-                              !line.trim() ? "h-3" : "leading-normal"
-                            }`}
-                          >
-                            {line.trim() || "\u00A0"}
-                          </span>
-                        ))}
-                    </div>
-                    {part.attachments?.some((a) => a.type === "link") && (
-                      <div className="mt-4">
-                        {part.attachments
-                          ?.filter((a) => a.type === "link")
-                          .map((attachment, i) => (
+                    <div className="relative flow-root">
+                      {part.attachments?.some(
+                        (a) => a.type === "image" || a.type === "video"
+                      ) && (
+                        <div className="lg:float-right lg:ml-6 lg:w-[40%] mb-4">
+                          {part.attachments?.map((attachment, i) => (
                             <Attachment key={i} attachment={attachment} />
                           ))}
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {part.text
+                          .replace(
+                            /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/gi,
+                            (match) => {
+                              const textarea =
+                                document.createElement("textarea");
+                              textarea.innerHTML = match;
+                              return textarea.value;
+                            }
+                          )
+                          .trim()
+                          .split("\n")
+                          .map((line, i) => (
+                            <span
+                              key={i}
+                              className={`block text-lg ${
+                                !line.trim() ? "h-3" : "leading-normal"
+                              }`}
+                            >
+                              {line.trim() || "\u00A0"}
+                            </span>
+                          ))}
                       </div>
-                    )}
+                      {part.attachments?.some((a) => a.type === "link") && (
+                        <div className="mt-4">
+                          {part.attachments
+                            ?.filter((a) => a.type === "link")
+                            .map((attachment, i) => (
+                              <Attachment key={i} attachment={attachment} />
+                            ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </article>
 
         {/* Footer */}

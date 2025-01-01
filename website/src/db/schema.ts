@@ -6,6 +6,7 @@ import {
   boolean,
   jsonb,
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 
 export const threads = pgTable("threads", {
   id: text("id").primaryKey(), // This will be the X post ID
@@ -33,6 +34,11 @@ export const threads = pgTable("threads", {
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const threadsRelations = relations(threads, ({ many, one }) => ({
+  tweets: many(tweets),
+  blogified: one(blogified_threads),
+}));
+
 export const tweets = pgTable("tweets", {
   id: text("id").primaryKey(), // X tweet ID
   thread_id: text("thread_id")
@@ -55,3 +61,31 @@ export const tweets = pgTable("tweets", {
   // System fields
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const tweetsRelations = relations(tweets, ({ one }) => ({
+  thread: one(threads, {
+    fields: [tweets.thread_id],
+    references: [threads.id],
+  }),
+}));
+
+export const blogified_threads = pgTable("blogified_threads", {
+  thread_id: text("thread_id")
+    .primaryKey()
+    .references(() => threads.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  version: integer("version").notNull().default(1),
+  is_paid: boolean("is_paid").notNull().default(false),
+});
+
+export const blogifiedThreadsRelations = relations(
+  blogified_threads,
+  ({ one }) => ({
+    thread: one(threads, {
+      fields: [blogified_threads.thread_id],
+      references: [threads.id],
+    }),
+  })
+);
