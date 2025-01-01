@@ -22,12 +22,14 @@ export function ImageCarousel({ images }: ImageCarouselProps) {
           className="rounded-lg overflow-hidden bg-gray-800 cursor-pointer"
           onClick={() => setIsModalOpen(true)}
         >
-          <img
-            src={images[0].url}
-            alt="Thread image"
-            className="w-full h-auto object-contain"
-            loading="lazy"
-          />
+          <div className="relative aspect-[16/9]">
+            <img
+              src={images[0].url}
+              alt="Thread image"
+              className="absolute inset-0 w-full h-full object-contain"
+              loading="lazy"
+            />
+          </div>
         </div>
         {isModalOpen && (
           <div
@@ -57,39 +59,32 @@ export function ImageCarousel({ images }: ImageCarouselProps) {
     );
   }
 
-  const goToPrevious = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setCurrentIndex((current) =>
-      current === 0 ? images.length - 1 : current - 1
-    );
-  };
-
-  const goToNext = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setCurrentIndex((current) =>
-      current === images.length - 1 ? 0 : current + 1
-    );
-  };
-
   return (
     <>
       <div
         className="relative rounded-lg overflow-hidden bg-gray-800 group cursor-pointer"
         onClick={() => setIsModalOpen(true)}
       >
-        <img
-          src={images[currentIndex].url}
-          alt={`Image ${currentIndex + 1} of ${images.length}`}
-          className="w-full h-auto object-contain"
-          loading="lazy"
-        />
+        <div className="relative aspect-[16/9]">
+          <img
+            src={images[currentIndex].url}
+            alt={`Image ${currentIndex + 1} of ${images.length}`}
+            className="absolute inset-0 w-full h-full object-contain"
+            loading="lazy"
+          />
+        </div>
 
         {/* Navigation buttons */}
         <Button
           variant="ghost"
           size="icon"
           className="absolute left-2 top-1/2 -translate-y-1/2 bg-gray-900/80 hover:bg-gray-900 text-gray-100 rounded-full w-8 h-8 transition-colors"
-          onClick={goToPrevious}
+          onClick={(e) => {
+            e.stopPropagation();
+            setCurrentIndex((current) =>
+              current === 0 ? images.length - 1 : current - 1
+            );
+          }}
         >
           <ChevronLeft className="h-5 w-5" />
         </Button>
@@ -97,7 +92,12 @@ export function ImageCarousel({ images }: ImageCarouselProps) {
           variant="ghost"
           size="icon"
           className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-900/80 hover:bg-gray-900 text-gray-100 rounded-full w-8 h-8 transition-colors"
-          onClick={goToNext}
+          onClick={(e) => {
+            e.stopPropagation();
+            setCurrentIndex((current) =>
+              current === images.length - 1 ? 0 : current + 1
+            );
+          }}
         >
           <ChevronRight className="h-5 w-5" />
         </Button>
@@ -131,7 +131,9 @@ export function ImageCarousel({ images }: ImageCarouselProps) {
             className="absolute left-4 top-1/2 -translate-y-1/2 bg-gray-900/80 hover:bg-gray-900 text-gray-100 rounded-full w-8 h-8"
             onClick={(e) => {
               e.stopPropagation();
-              goToPrevious();
+              setCurrentIndex((current) =>
+                current === 0 ? images.length - 1 : current - 1
+              );
             }}
           >
             <ChevronLeft className="h-5 w-5" />
@@ -148,7 +150,9 @@ export function ImageCarousel({ images }: ImageCarouselProps) {
             className="absolute right-4 top-1/2 -translate-y-1/2 bg-gray-900/80 hover:bg-gray-900 text-gray-100 rounded-full w-8 h-8"
             onClick={(e) => {
               e.stopPropagation();
-              goToNext();
+              setCurrentIndex((current) =>
+                current === images.length - 1 ? 0 : current + 1
+              );
             }}
           >
             <ChevronRight className="h-5 w-5" />
