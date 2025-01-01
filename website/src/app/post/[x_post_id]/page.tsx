@@ -159,6 +159,7 @@ export default function ThreadPost() {
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [blogifiedContent, setBlogifiedContent] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"thread" | "blog">("thread");
+  const [showCopiedFeedback, setShowCopiedFeedback] = useState(false);
 
   useEffect(() => {
     // Get view parameter from URL
@@ -255,6 +256,16 @@ export default function ThreadPost() {
     const url = new URL(window.location.href);
     url.searchParams.set("view", "thread");
     window.history.pushState({}, "", url.toString());
+  };
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setShowCopiedFeedback(true);
+      setTimeout(() => setShowCopiedFeedback(false), 2000); // Hide after 2 seconds
+    } catch (err) {
+      console.error("Failed to copy URL:", err);
+    }
   };
 
   if (loading) {
@@ -394,10 +405,15 @@ export default function ThreadPost() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-gray-300 hover:text-blue-400 h-auto p-2 rounded-full group"
-                onClick={() => window.open(originalUrl, "_blank")}
+                className="text-gray-300 hover:text-blue-400 h-auto p-2 rounded-full group relative"
+                onClick={handleShare}
               >
                 <Share className="h-6 w-6 group-hover:bg-blue-400/10 rounded-full transition-colors" />
+                {showCopiedFeedback && (
+                  <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-sm bg-gray-800 text-white px-2 py-1 rounded whitespace-nowrap">
+                    URL copied!
+                  </span>
+                )}
               </Button>
             </div>
           </div>
