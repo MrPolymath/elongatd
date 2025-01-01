@@ -153,12 +153,11 @@ function XLogo() {
 export default function ThreadPost() {
   const params = useParams();
   const postId = params.x_post_id as string;
-  const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [blogifiedContent, setBlogifiedContent] = useState<string | null>(null);
   const [blogifyLoading, setBlogifyLoading] = useState(false);
-  const [blogifyError, setBlogifyError] = useState<string | null>(null);
+  const [threadData, setThreadData] = useState<ThreadData | null>(null);
+  const [blogifiedContent, setBlogifiedContent] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"thread" | "blog">("thread");
 
   useEffect(() => {
@@ -185,20 +184,26 @@ export default function ThreadPost() {
         if (blogExistsResponse.ok) {
           const { exists } = await blogExistsResponse.json();
           if (exists) {
-            // Only fetch the blog content if it exists and blog view was requested
-            if (viewParam === "blog") {
+            try {
+              // Always fetch the blog content if it exists
               const blogResponse = await fetch(
                 `/api/threads/${postId}/blogify`
               );
               if (blogResponse.ok) {
                 const blogData = await blogResponse.json();
                 setBlogifiedContent(blogData.content);
-                setViewMode("blog");
+                // Only switch to blog view if it was requested
+                if (viewParam === "blog") {
+                  setViewMode("blog");
+                }
               }
+            } catch (err) {
+              console.error("Error fetching blog content:", err);
             }
           } else {
             // If blog doesn't exist, always show thread view
             setViewMode("thread");
+            setBlogifiedContent(null);
             // Update URL to reflect thread view
             const url = new URL(window.location.href);
             url.searchParams.set("view", "thread");
@@ -217,7 +222,7 @@ export default function ThreadPost() {
 
   const handleBlogify = async () => {
     if (blogifiedContent) {
-      // If we already have blog content, just switch the view
+      // If blog content exists, just switch to blog view
       setViewMode("blog");
       const url = new URL(window.location.href);
       url.searchParams.set("view", "blog");
@@ -226,22 +231,19 @@ export default function ThreadPost() {
     }
 
     setBlogifyLoading(true);
-    setBlogifyError(null);
     try {
       const response = await fetch(`/api/threads/${postId}/blogify`);
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to blogify thread");
+        throw new Error("Failed to generate blog view");
       }
       const data = await response.json();
       setBlogifiedContent(data.content);
       setViewMode("blog");
-      // Update URL without reloading the page
       const url = new URL(window.location.href);
       url.searchParams.set("view", "blog");
       window.history.pushState({}, "", url.toString());
     } catch (err) {
-      setBlogifyError(err instanceof Error ? err.message : "An error occurred");
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setBlogifyLoading(false);
     }
@@ -326,7 +328,7 @@ export default function ThreadPost() {
                   className={`${
                     viewMode === "blog"
                       ? "bg-gradient-to-r from-purple-500/50 to-blue-500/50 text-white"
-                      : "text-gray-300 hover:bg-gray-800/70 hover:text-white"
+                      : "text-transparent bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text hover:bg-gray-800/70 hover:text-transparent hover:from-purple-400 hover:to-blue-400"
                   } transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium`}
                   onClick={handleBlogify}
                   disabled={viewMode === "blog"}
@@ -344,7 +346,7 @@ export default function ThreadPost() {
                   {blogifyLoading ? (
                     <span className="text-gray-300">Converting...</span>
                   ) : (
-                    <span>Generate Blog View</span>
+                    <span>Convert to Blog</span>
                   )}
                 </Button>
               )}
@@ -551,9 +553,6 @@ export default function ThreadPost() {
                   );
                 }
               })()}
-              {blogifyError && (
-                <div className="text-red-400 mt-4">{blogifyError}</div>
-              )}
             </div>
           ) : (
             <div className="space-y-8">
