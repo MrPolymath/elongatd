@@ -21,29 +21,25 @@ function createNotification(exists = true) {
   notification.className = "elongatd-notification hidden";
   notification.innerHTML = exists
     ? `
-    <div class="elongatd-notification">
-      <div class="notification-content">
-        <h2>View in Elongatd</h2>
-        <p>This thread is available in a better format on Elongatd.</p>
-        <div class="notification-buttons">
-          <button class="notification-button thread-button" id="viewThreadButton">View Thread</button>
-          <button class="notification-button blog-button" id="readBlogButton">Read Blog</button>
-        </div>
+    <div class="notification-content">
+      <h2>View in Elongatd</h2>
+      <p>This thread is available in a better format on Elongatd.</p>
+      <div class="notification-buttons">
+        <button class="notification-button thread-button" id="viewThreadButton">View Thread</button>
+        <button class="notification-button blog-button" id="readBlogButton">Read Blog</button>
       </div>
-      <button class="close-button" id="closeButton">×</button>
     </div>
-  `
+    <button class="close-button" id="closeButton">×</button>
+    `
     : `
-    <div class="elongatd-notification-header">
-      <h3 class="elongatd-notification-title">Read in Elongatd</h3>
-      <button class="elongatd-notification-close" title="Close">×</button>
+    <div class="notification-content">
+      <h2>Read in Elongatd</h2>
+      <p>View this thread in a better format on Elongatd.</p>
+      <div class="notification-buttons">
+        <button class="notification-button blog-button" id="create-and-view">Open in Elongatd</button>
+      </div>
     </div>
-    <div class="elongatd-notification-content">
-      View this thread in a better format on Elongatd.
-    </div>
-    <div class="elongatd-notification-actions">
-      <button class="elongatd-notification-button primary" id="create-and-view">Open in Elongatd</button>
-    </div>
+    <button class="close-button" id="closeButton">×</button>
   `;
 
   document.body.appendChild(notification);

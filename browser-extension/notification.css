@@ -13,6 +13,10 @@
     Arial, sans-serif;
 }
 
+.elongatd-notification.hidden {
+  display: none;
+}
+
 .notification-content {
   padding: 16px;
 }
@@ -36,6 +40,7 @@
 }
 
 .notification-button {
+  flex: 1;
   padding: 8px 16px;
   border-radius: 9999px;
   font-size: 14px;
@@ -58,12 +63,12 @@
 }
 
 .blog-button {
-  background: rgb(29, 155, 240);
+  background: linear-gradient(to right, rgb(139, 92, 246), rgb(59, 130, 246));
   color: white;
 }
 
 .blog-button:hover {
-  background: rgb(26, 140, 216);
+  opacity: 0.9;
 }
 
 .close-button {
