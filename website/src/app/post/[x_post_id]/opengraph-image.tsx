@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { db } from "@/db";
+import { db } from "@/db/edge";
 
 export const runtime = "edge";
 export const contentType = "image/png";
@@ -63,75 +63,32 @@ export default async function Image({
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            flexDirection: "column",
             gap: 16,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={thread.author_profile_image_url}
-            alt={thread.author_name}
-            width={64}
-            height={64}
-            style={{
-              borderRadius: "50%",
-            }}
-          />
           <div
             style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
+              fontSize: 32,
+              color: "rgb(156, 163, 175)",
             }}
           >
-            <div
-              style={{
-                fontSize: 32,
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              {thread.author_name}
-              {thread.author_verified && (
-                <div
-                  style={{
-                    color: "rgb(96, 165, 250)",
-                    fontSize: 24,
-                  }}
-                >
-                  ✓
-                </div>
-              )}
-            </div>
-            <div
-              style={{
-                fontSize: 24,
-                color: "rgb(156, 163, 175)",
-              }}
-            >
-              @{thread.author_username}
-            </div>
+            Thread by @{thread.author_username}
           </div>
-        </div>
-        <div
-          style={{
-            fontSize: 40,
-            color: "white",
-            lineHeight: 1.4,
-          }}
-        >
-          {thread.tweets?.[0]?.text?.slice(0, 140)}
-          {thread.tweets?.[0]?.text?.length > 140 ? "..." : ""}
-        </div>
-        <div
-          style={{
-            fontSize: 24,
-            color: "rgb(156, 163, 175)",
-          }}
-        >
-          Read more on Elongatd
+          <div
+            style={{
+              fontSize: 48,
+              fontWeight: "bold",
+              color: "white",
+              display: "-webkit-box",
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              width: "100%",
+            }}
+          >
+            {thread.tweets[0]?.text || "No content"}
+          </div>
         </div>
       </div>
     ),
