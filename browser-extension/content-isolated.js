@@ -40,11 +40,17 @@ function extractAttachments(tweet) {
   if (tweet.card?.legacy) {
     const card = tweet.card.legacy;
     if (card.name === "summary" || card.name === "summary_large_image") {
+      // Convert binding_values array to an object
+      const values = card.binding_values.reduce((acc, { key, value }) => {
+        acc[key] = value.string_value || "";
+        return acc;
+      }, {});
+
       attachments.push({
         type: "link",
-        url: card.binding_values.card_url?.string_value || "",
-        title: card.binding_values.title?.string_value || "",
-        description: card.binding_values.description?.string_value || "",
+        url: values.card_url || "",
+        title: values.title || "",
+        description: values.description || "",
       });
     }
   }
