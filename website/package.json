@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "drizzle-kit push:pg && next build",
+    "build": "NODE_ENV=production drizzle-kit push:pg && next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "drizzle-kit generate:pg",
