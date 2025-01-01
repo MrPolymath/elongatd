@@ -1,110 +1,90 @@
 .elongatd-notification {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  background: white;
-  border: 1px solid #e1e8ed;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  top: 16px;
+  right: 16px;
+  width: 320px;
+  background: rgb(22, 24, 28);
+  color: rgb(247, 249, 249);
+  border-radius: 16px;
+  box-shadow: rgba(255, 255, 255, 0.2) 0px 0px 15px,
+    rgba(255, 255, 255, 0.15) 0px 0px 3px 1px;
   z-index: 9999;
-  max-width: 300px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  animation: slideIn 0.3s ease-out;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
 }
 
-.elongatd-notification.hidden {
-  display: none;
+.notification-content {
+  padding: 16px;
 }
 
-.elongatd-notification-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.elongatd-notification-title {
-  font-weight: 700;
-  font-size: 16px;
-  color: #0f1419;
-  margin: 0;
-}
-
-.elongatd-notification-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  margin: -8px;
-  color: #536471;
+.notification-content h2 {
   font-size: 20px;
-  line-height: 1;
-  border-radius: 50%;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.notification-content p {
+  font-size: 15px;
+  line-height: 20px;
+  color: rgb(113, 118, 123);
+  margin: 0 0 16px 0;
+}
+
+.notification-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.notification-button {
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  outline: none;
+}
+
+.thread-button {
+  background: transparent;
+  color: rgb(113, 118, 123);
+  border: 1px solid rgb(51, 54, 57);
+}
+
+.thread-button:hover {
+  background: rgba(239, 243, 244, 0.1);
+  color: rgb(247, 249, 249);
+}
+
+.blog-button {
+  background: rgb(29, 155, 240);
+  color: white;
+}
+
+.blog-button:hover {
+  background: rgb(26, 140, 216);
+}
+
+.close-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   width: 32px;
   height: 32px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: rgb(113, 118, 123);
+  font-size: 24px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
 
-.elongatd-notification-close:hover {
-  background-color: rgba(15, 20, 25, 0.1);
-  color: #0f1419;
-}
-
-.elongatd-notification-content {
-  margin-bottom: 12px;
-  color: #536471;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.elongatd-notification-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.elongatd-notification-button {
-  flex: 1;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-  text-decoration: none;
-  transition: background-color 0.2s;
-}
-
-.elongatd-notification-button.primary {
-  background-color: #1d9bf0;
-  color: white;
-  border: none;
-}
-
-.elongatd-notification-button.primary:hover {
-  background-color: #1a8cd8;
-}
-
-.elongatd-notification-button.secondary {
-  background-color: transparent;
-  color: #1d9bf0;
-  border: 1px solid #1d9bf0;
-}
-
-.elongatd-notification-button.secondary:hover {
-  background-color: rgba(29, 155, 240, 0.1);
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+.close-button:hover {
+  background: rgba(239, 243, 244, 0.1);
+  color: rgb(247, 249, 249);
 }

@@ -21,16 +21,16 @@ function createNotification(exists = true) {
   notification.className = "elongatd-notification hidden";
   notification.innerHTML = exists
     ? `
-    <div class="elongatd-notification-header">
-      <h3 class="elongatd-notification-title">View in Elongatd</h3>
-      <button class="elongatd-notification-close" title="Close">×</button>
-    </div>
-    <div class="elongatd-notification-content">
-      This thread is available in a better format on Elongatd.
-    </div>
-    <div class="elongatd-notification-actions">
-      <a href="#" class="elongatd-notification-button primary" id="view-thread">View Thread</a>
-      <a href="#" class="elongatd-notification-button secondary hidden" id="view-blog">Read Blog</a>
+    <div class="elongatd-notification">
+      <div class="notification-content">
+        <h2>View in Elongatd</h2>
+        <p>This thread is available in a better format on Elongatd.</p>
+        <div class="notification-buttons">
+          <button class="notification-button thread-button" id="viewThreadButton">View Thread</button>
+          <button class="notification-button blog-button" id="readBlogButton">Read Blog</button>
+        </div>
+      </div>
+      <button class="close-button" id="closeButton">×</button>
     </div>
   `
     : `
@@ -57,18 +57,22 @@ function showNotification(postId, exists = false, hasBlog = false) {
   const baseUrl = window.config.apiBaseUrl.replace("/api/threads", "");
 
   if (exists) {
-    // Update notification content for existing thread
-    const blogButton = notification.querySelector("#view-blog");
-    if (hasBlog) {
-      blogButton.classList.remove("hidden");
-      blogButton.href = `${baseUrl}/post/${postId}?view=blog`;
-    } else {
-      blogButton.classList.add("hidden");
-    }
+    // Add click handlers for thread and blog buttons
+    const threadButton = notification.querySelector("#viewThreadButton");
+    const blogButton = notification.querySelector("#readBlogButton");
+    const closeButton = notification.querySelector("#closeButton");
 
-    // Update thread button
-    const threadButton = notification.querySelector("#view-thread");
-    threadButton.href = `${baseUrl}/post/${postId}?view=thread`;
+    threadButton.onclick = () => {
+      window.open(`${baseUrl}/post/${postId}?view=thread`, "_blank");
+    };
+
+    blogButton.onclick = () => {
+      window.open(`${baseUrl}/post/${postId}?view=blog`, "_blank");
+    };
+
+    closeButton.onclick = () => {
+      notification.remove();
+    };
   } else {
     // Add click handler for create-and-view button
     const createButton = notification.querySelector("#create-and-view");
@@ -94,14 +98,6 @@ function showNotification(postId, exists = false, hasBlog = false) {
 
   // Show notification
   notification.classList.remove("hidden");
-
-  // Add event listeners
-  const closeButton = notification.querySelector(
-    ".elongatd-notification-close"
-  );
-  closeButton.onclick = () => {
-    notification.remove(); // Remove the element entirely instead of just hiding it
-  };
 }
 
 // Save original fetch and XHR
