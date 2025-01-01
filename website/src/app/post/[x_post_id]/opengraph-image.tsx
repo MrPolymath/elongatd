@@ -1,7 +1,5 @@
 import { ImageResponse } from "next/og";
 import { db } from "@/db";
-import { tweets } from "@/db/schema";
-import { sql } from "drizzle-orm";
 
 export const runtime = "edge";
 export const contentType = "image/png";

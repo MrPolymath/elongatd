@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { Button } from "./ui/button";
+import { useState } from "react";
+import Image from "next/image";
 
 interface ImageCarouselProps {
-  images: Array<{
+  images: {
     url: string;
     width?: number;
     height?: number;
-  }>;
+  }[];
 }
 
 export function ImageCarousel({ images }: ImageCarouselProps) {
@@ -23,11 +24,13 @@ export function ImageCarousel({ images }: ImageCarouselProps) {
           onClick={() => setIsModalOpen(true)}
         >
           <div className="relative aspect-[16/9]">
-            <img
+            <Image
               src={images[0].url}
               alt="Thread image"
-              className="absolute inset-0 w-full h-full object-contain"
-              loading="lazy"
+              className="object-contain"
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              priority
             />
           </div>
         </div>
@@ -47,12 +50,17 @@ export function ImageCarousel({ images }: ImageCarouselProps) {
             >
               <X className="h-5 w-5" />
             </Button>
-            <img
-              src={images[0].url}
-              alt="Thread image"
-              className="max-h-[90vh] max-w-[90vw] object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
+            <div className="relative w-[90vw] h-[90vh]">
+              <Image
+                src={images[0].url}
+                alt="Thread image"
+                className="object-contain"
+                fill
+                sizes="90vw"
+                onClick={(e) => e.stopPropagation()}
+                priority
+              />
+            </div>
           </div>
         )}
       </>
@@ -66,11 +74,13 @@ export function ImageCarousel({ images }: ImageCarouselProps) {
         onClick={() => setIsModalOpen(true)}
       >
         <div className="relative aspect-[16/9]">
-          <img
+          <Image
             src={images[currentIndex].url}
             alt={`Image ${currentIndex + 1} of ${images.length}`}
-            className="absolute inset-0 w-full h-full object-contain"
-            loading="lazy"
+            className="object-contain"
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            priority
           />
         </div>
 
@@ -138,12 +148,17 @@ export function ImageCarousel({ images }: ImageCarouselProps) {
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <img
-            src={images[currentIndex].url}
-            alt={`Image ${currentIndex + 1} of ${images.length}`}
-            className="max-h-[90vh] max-w-[90vw] object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div className="relative w-[90vw] h-[90vh]">
+            <Image
+              src={images[currentIndex].url}
+              alt={`Image ${currentIndex + 1} of ${images.length}`}
+              className="object-contain"
+              fill
+              sizes="90vw"
+              onClick={(e) => e.stopPropagation()}
+              priority
+            />
+          </div>
           <Button
             variant="ghost"
             size="icon"

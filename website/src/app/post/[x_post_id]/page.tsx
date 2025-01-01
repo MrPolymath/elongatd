@@ -16,6 +16,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { MarkdownWithMedia } from "@/components/markdown-with-media";
 import { ImageCarousel } from "@/components/image-carousel";
+import Image from "next/image";
 
 // Types for our thread data
 interface Metrics {
@@ -98,12 +99,13 @@ function Attachment({ attachments }: { attachments: Attachment[] }) {
       {images.length > 0 && (
         <div className="rounded-lg border-2 border-border/40 overflow-hidden">
           {images.length === 1 ? (
-            <img
+            <Image
               src={images[0].url}
               alt=""
               className="w-full h-auto"
-              width={images[0].width}
-              height={images[0].height}
+              width={images[0].width || 1200}
+              height={images[0].height || 675}
+              priority={true}
             />
           ) : (
             <ImageCarousel
@@ -243,28 +245,17 @@ export default function ThreadPost() {
         const data = await response.json();
         setThreadData(data);
 
-        // Check if blog version exists without generating it
+        // Check if blog version exists
         const blogExistsResponse = await fetch(
           `/api/threads/${postId}/blogify/exists`
         );
         if (blogExistsResponse.ok) {
-          const { exists } = await blogExistsResponse.json();
-          if (exists) {
-            try {
-              // Always fetch the blog content if it exists
-              const blogResponse = await fetch(
-                `/api/threads/${postId}/blogify`
-              );
-              if (blogResponse.ok) {
-                const blogData = await blogResponse.json();
-                setBlogContent(blogData.content);
-                // Only switch to blog view if it was requested
-                if (viewParam === "blog") {
-                  setViewMode("blog");
-                }
-              }
-            } catch (err) {
-              console.error("Error fetching blog content:", err);
+          const { exists, content } = await blogExistsResponse.json();
+          if (exists && content) {
+            setBlogContent(content);
+            // Only switch to blog view if it was requested
+            if (viewParam === "blog") {
+              setViewMode("blog");
             }
           } else {
             // If blog doesn't exist, always show thread view

@@ -146,7 +146,7 @@ export function MarkdownWithMedia({ content, media }: MarkdownWithMediaProps) {
   const processedParts: (string | { type: string; items: Attachment[] })[] = [];
   let currentImageGroup: Attachment[] = [];
 
-  parts.forEach((part, index) => {
+  parts.forEach((part) => {
     const mediaMatch = part.match(/\{media:(\d+)\}/);
     if (mediaMatch) {
       const mediaId = mediaMatch[1];
