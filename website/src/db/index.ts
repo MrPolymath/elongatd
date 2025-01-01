@@ -3,10 +3,15 @@ import { drizzle as drizzleVercel } from "drizzle-orm/vercel-postgres";
 import { createPool } from "@vercel/postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import type { VercelPgDatabase } from "drizzle-orm/vercel-postgres";
 
 const isLocal = process.env.USE_LOCAL_DB === "true";
 
-let db;
+// This type represents our database instance with our schema
+type Database = NodePgDatabase<typeof schema> | VercelPgDatabase<typeof schema>;
+
+let db: Database;
 
 if (isLocal) {
   // Use pg for local connections
