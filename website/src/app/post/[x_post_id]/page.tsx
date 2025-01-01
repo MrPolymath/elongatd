@@ -175,7 +175,7 @@ function XLogo() {
 
 function VerifiedBadge() {
   return (
-    <div className="h-5 w-5 text-blue-400">
+    <div className="h-5 w-5 text-foreground bg-blue-500/10 rounded-full p-1">
       <svg viewBox="0 0 22 22" aria-label="Verified account">
         <path
           fill="currentColor"
@@ -509,7 +509,7 @@ export default function ThreadPost() {
               rel="noopener noreferrer"
               className="group flex items-start gap-5 hover:opacity-90 transition-opacity"
             >
-              <Avatar className="h-16 w-16 ring-2 ring-blue-400">
+              <Avatar className="h-14 w-14">
                 <AvatarImage src={author.profile_image_url} />
                 <AvatarFallback>
                   {author.name
@@ -707,6 +707,17 @@ export default function ThreadPost() {
           </footer>
         </div>
       </main>
+
+      {/* Extension Promo */}
+      <Link
+        href="https://github.com/MrPolymath/elongatd"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 bg-gradient-to-r from-purple-500/50 to-blue-500/50 hover:from-purple-500 hover:to-blue-500 text-muted-foreground hover:text-foreground px-4 py-3 rounded-lg shadow-lg transition-all duration-200 text-sm font-medium flex items-center gap-2 group"
+      >
+        <span>✨ Install the extension</span>
+        <ExternalLink className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+      </Link>
     </div>
   );
 }
