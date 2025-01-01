@@ -92,19 +92,19 @@ function MediaRenderer({ attachments }: { attachments: Attachment[] }) {
 
 const components: Components = {
   h1: ({ children }) => (
-    <h1 className="text-4xl font-bold mb-6 text-gray-100">{children}</h1>
+    <h1 className="text-4xl font-bold mb-6 text-foreground">{children}</h1>
   ),
   h2: ({ children }) => (
-    <h2 className="text-3xl font-semibold mb-4 text-gray-100">{children}</h2>
+    <h2 className="text-3xl font-semibold mb-4 text-foreground">{children}</h2>
   ),
   h3: ({ children }) => (
-    <h3 className="text-2xl font-semibold mb-4 text-gray-200">{children}</h3>
+    <h3 className="text-2xl font-semibold mb-4 text-foreground">{children}</h3>
   ),
   h4: ({ children }) => (
-    <h4 className="text-xl font-semibold mb-3 text-gray-200">{children}</h4>
+    <h4 className="text-xl font-semibold mb-3 text-foreground">{children}</h4>
   ),
   p: ({ children }) => (
-    <p className="text-lg leading-relaxed mb-4 text-gray-300">{children}</p>
+    <p className="text-lg leading-relaxed mb-4 text-foreground">{children}</p>
   ),
   a: ({ href, children }) => (
     <a
@@ -117,14 +117,16 @@ const components: Components = {
     </a>
   ),
   ul: ({ children }) => (
-    <ul className="list-disc list-inside mb-4 text-gray-300">{children}</ul>
+    <ul className="list-disc list-inside mb-4 text-foreground">{children}</ul>
   ),
   ol: ({ children }) => (
-    <ol className="list-decimal list-inside mb-4 text-gray-300">{children}</ol>
+    <ol className="list-decimal list-inside mb-4 text-foreground">
+      {children}
+    </ol>
   ),
   li: ({ children }) => <li className="mb-2">{children}</li>,
   blockquote: ({ children }) => (
-    <blockquote className="border-l-4 border-gray-700 pl-4 my-4 italic text-gray-400">
+    <blockquote className="border-l-4 border-border pl-4 my-4 italic text-muted-foreground">
       {children}
     </blockquote>
   ),
@@ -188,7 +190,7 @@ export function MarkdownWithMedia({ content, media }: MarkdownWithMediaProps) {
         <ReactMarkdown components={components}>
           {"# " + content.title}
         </ReactMarkdown>
-        <p className="text-xl text-gray-400 mt-4">{content.summary}</p>
+        <p className="text-xl text-muted-foreground mt-4">{content.summary}</p>
       </div>
       <div className="space-y-6">
         {processedParts.map((part, index) => {
