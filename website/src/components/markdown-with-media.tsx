@@ -2,6 +2,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import { Attachment } from "@/types";
 import { Components } from "react-markdown";
+import { ImageCarousel } from "./image-carousel";
 
 interface MarkdownWithMediaProps {
   content: {
@@ -12,39 +13,48 @@ interface MarkdownWithMediaProps {
   media: Record<string, Attachment>;
 }
 
-function MediaRenderer({ type, ...props }: Attachment) {
-  // Skip rendering if URL is empty or invalid
-  if (!props.url) return null;
+function MediaRenderer({ attachments }: { attachments: Attachment[] }) {
+  // Group attachments by type
+  const images = attachments.filter((a) => a.type === "image");
+  const videos = attachments.filter((a) => a.type === "video");
+  const links = attachments.filter((a) => a.type === "link");
 
-  switch (type) {
-    case "image":
-      return (
-        <div className="rounded-lg overflow-hidden bg-gray-800">
-          <img
-            src={props.url}
-            alt={props.description || "Image"}
-            className="w-full h-auto object-contain"
-            loading="lazy"
-          />
-        </div>
-      );
-    case "video":
-      return (
-        <div className="rounded-lg overflow-hidden bg-black aspect-video">
+  return (
+    <div className="space-y-4">
+      {/* Render images in carousel */}
+      {images.length > 0 && (
+        <ImageCarousel
+          images={images.map((img) => ({
+            url: img.url,
+            width: img.width,
+            height: img.height,
+          }))}
+        />
+      )}
+
+      {/* Render videos */}
+      {videos.map((video, index) => (
+        <div
+          key={index}
+          className="rounded-lg overflow-hidden bg-black aspect-video"
+        >
           <video
-            poster={props.thumbnail_url || undefined}
+            src={video.url}
+            poster={video.thumbnail_url}
             controls
             className="w-full h-full object-contain"
             preload="metadata"
           >
-            <source src={props.url} type="video/mp4" />
+            <source src={video.url} type="video/mp4" />
           </video>
         </div>
-      );
-    case "link":
-      return (
+      ))}
+
+      {/* Render links */}
+      {links.map((link, index) => (
         <a
-          href={props.url}
+          key={index}
+          href={link.url}
           target="_blank"
           rel="noopener noreferrer"
           className="group block p-4 border border-gray-800 rounded-lg hover:bg-gray-800/50 transition-all hover:border-gray-700"
@@ -52,12 +62,10 @@ function MediaRenderer({ type, ...props }: Attachment) {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-lg mb-2 text-blue-400 group-hover:text-gray-100 transition-colors truncate">
-                {props.title || props.url}
+                {link.title || link.url}
               </h3>
-              {props.description && (
-                <p className="text-gray-400 line-clamp-2">
-                  {props.description}
-                </p>
+              {link.description && (
+                <p className="text-gray-400 line-clamp-2">{link.description}</p>
               )}
             </div>
             <svg
@@ -77,10 +85,9 @@ function MediaRenderer({ type, ...props }: Attachment) {
             </svg>
           </div>
         </a>
-      );
-    default:
-      return null;
-  }
+      ))}
+    </div>
+  );
 }
 
 const components: Components = {
@@ -151,12 +158,12 @@ export function MarkdownWithMedia({ content, media }: MarkdownWithMediaProps) {
               <div key={`media-${index}`}>
                 {(mediaItem.type === "image" || mediaItem.type === "video") && (
                   <div className="mx-auto max-w-2xl">
-                    <MediaRenderer {...mediaItem} />
+                    <MediaRenderer attachments={[mediaItem]} />
                   </div>
                 )}
                 {mediaItem.type === "link" && (
                   <div className="mt-4">
-                    <MediaRenderer {...mediaItem} />
+                    <MediaRenderer attachments={[mediaItem]} />
                   </div>
                 )}
               </div>

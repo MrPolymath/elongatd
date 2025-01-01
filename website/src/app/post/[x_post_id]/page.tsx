@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { MarkdownWithMedia } from "@/components/markdown-with-media";
+import { ImageCarousel } from "@/components/image-carousel";
 
 // Types for our thread data
 interface Metrics {
@@ -76,37 +77,48 @@ function formatNumber(num: number): string {
   return num.toString();
 }
 
-function Attachment({ attachment }: { attachment: Attachment }) {
-  switch (attachment.type) {
-    case "image":
-      return (
-        <div className="rounded-lg overflow-hidden bg-gray-800">
-          <img
-            src={attachment.url}
-            alt="Thread image"
-            className="w-full h-auto object-contain"
-            loading="lazy"
-          />
-        </div>
-      );
-    case "video":
-      return (
-        <div className="rounded-lg overflow-hidden bg-black aspect-video">
+function Attachment({ attachments }: { attachments: Attachment[] }) {
+  // Group attachments by type
+  const images = attachments.filter((a) => a.type === "image");
+  const videos = attachments.filter((a) => a.type === "video");
+  const links = attachments.filter((a) => a.type === "link");
+
+  return (
+    <div className="space-y-4">
+      {/* Render images in carousel */}
+      {images.length > 0 && (
+        <ImageCarousel
+          images={images.map((img) => ({
+            url: img.url,
+            width: img.width,
+            height: img.height,
+          }))}
+        />
+      )}
+
+      {/* Render videos */}
+      {videos.map((video, index) => (
+        <div
+          key={index}
+          className="rounded-lg overflow-hidden bg-black aspect-video"
+        >
           <video
-            src={attachment.url}
-            poster={attachment.thumbnail_url}
+            src={video.url}
+            poster={video.thumbnail_url}
             controls
             className="w-full h-full object-contain"
             preload="metadata"
           >
-            <source src={attachment.url} type="video/mp4" />
+            <source src={video.url} type="video/mp4" />
           </video>
         </div>
-      );
-    case "link":
-      return (
+      ))}
+
+      {/* Render links */}
+      {links.map((link, index) => (
         <a
-          href={attachment.url}
+          key={index}
+          href={link.url}
           target="_blank"
           rel="noopener noreferrer"
           className="group block p-4 border border-gray-800 rounded-lg hover:bg-gray-800/50 transition-all hover:border-gray-700"
@@ -114,19 +126,16 @@ function Attachment({ attachment }: { attachment: Attachment }) {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-lg mb-2 text-blue-400 group-hover:text-gray-100 transition-colors truncate">
-                {attachment.title}
+                {link.title}
               </h3>
-              <p className="text-gray-400 line-clamp-2">
-                {attachment.description}
-              </p>
+              <p className="text-gray-400 line-clamp-2">{link.description}</p>
             </div>
             <ExternalLink className="h-5 w-5 text-blue-400 group-hover:text-gray-100 transition-colors flex-shrink-0" />
           </div>
         </a>
-      );
-    default:
-      return null;
-  }
+      ))}
+    </div>
+  );
 }
 
 function XLogo() {
@@ -169,18 +178,32 @@ export default function ThreadPost() {
         const data = await response.json();
         setThreadData(data);
 
-        // Always check if blog version exists
-        const blogResponse = await fetch(`/api/threads/${postId}/blogify`);
-        if (blogResponse.ok) {
-          const blogData = await blogResponse.json();
-          setBlogifiedContent(blogData.content);
-          // Only set view mode to blog if that's what was requested
-          if (viewParam === "blog") {
-            setViewMode("blog");
+        // Check if blog version exists without generating it
+        const blogExistsResponse = await fetch(
+          `/api/threads/${postId}/blogify/exists`
+        );
+        if (blogExistsResponse.ok) {
+          const { exists } = await blogExistsResponse.json();
+          if (exists) {
+            // Only fetch the blog content if it exists and blog view was requested
+            if (viewParam === "blog") {
+              const blogResponse = await fetch(
+                `/api/threads/${postId}/blogify`
+              );
+              if (blogResponse.ok) {
+                const blogData = await blogResponse.json();
+                setBlogifiedContent(blogData.content);
+                setViewMode("blog");
+              }
+            }
+          } else {
+            // If blog doesn't exist, always show thread view
+            setViewMode("thread");
+            // Update URL to reflect thread view
+            const url = new URL(window.location.href);
+            url.searchParams.set("view", "thread");
+            window.history.pushState({}, "", url.toString());
           }
-        } else if (viewParam === "blog") {
-          // If blog view was requested but doesn't exist, switch to thread view
-          setViewMode("thread");
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
@@ -288,7 +311,7 @@ export default function ThreadPost() {
                 size="sm"
                 className={`${
                   viewMode === "thread"
-                    ? "bg-gradient-to-r from-purple-500/50 to-blue-500/50 text-white"
+                    ? "bg-gray-800/70 text-white"
                     : "text-gray-300 hover:bg-gray-800/70 hover:text-white"
                 } transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium`}
                 onClick={switchToThreadView}
@@ -314,14 +337,14 @@ export default function ThreadPost() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-gray-300 hover:bg-gray-800/70 hover:text-white transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium"
+                  className="text-transparent bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text hover:bg-gray-800/50 hover:text-transparent hover:from-purple-400 hover:to-blue-400 transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium"
                   onClick={handleBlogify}
                   disabled={blogifyLoading}
                 >
                   {blogifyLoading ? (
-                    <span>Converting...</span>
+                    <span className="text-gray-300">Converting...</span>
                   ) : (
-                    <span>Convert to Blog</span>
+                    <span>Generate Blog View</span>
                   )}
                 </Button>
               )}
@@ -510,8 +533,12 @@ export default function ThreadPost() {
 
                   return (
                     <MarkdownWithMedia
-                      content={blogPost}
-                      media={blogPost.media || {}}
+                      content={{
+                        content: blogPost.content,
+                        title: blogPost.title,
+                        summary: blogPost.summary,
+                      }}
+                      media={blogPost.media}
                     />
                   );
                 } catch (error) {
@@ -640,7 +667,7 @@ export default function ThreadPost() {
                         {fragments}
                       </p>
                       {part.attachments?.map((attachment, i) => (
-                        <Attachment key={i} attachment={attachment} />
+                        <Attachment key={i} attachments={part.attachments} />
                       ))}
                     </div>
                   );
@@ -654,9 +681,7 @@ export default function ThreadPost() {
                         (a) => a.type === "image" || a.type === "video"
                       ) && (
                         <div className="lg:float-right lg:ml-6 lg:w-[40%] mb-4">
-                          {part.attachments?.map((attachment, i) => (
-                            <Attachment key={i} attachment={attachment} />
-                          ))}
+                          <Attachment attachments={part.attachments} />
                         </div>
                       )}
                       <div className="space-y-2">
@@ -685,11 +710,11 @@ export default function ThreadPost() {
                       </div>
                       {part.attachments?.some((a) => a.type === "link") && (
                         <div className="mt-4">
-                          {part.attachments
-                            ?.filter((a) => a.type === "link")
-                            .map((attachment, i) => (
-                              <Attachment key={i} attachment={attachment} />
-                            ))}
+                          <Attachment
+                            attachments={part.attachments.filter(
+                              (a) => a.type === "link"
+                            )}
+                          />
                         </div>
                       )}
                     </div>
