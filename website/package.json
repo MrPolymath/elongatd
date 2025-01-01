@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "NODE_ENV=production drizzle-kit push:pg && next build",
+    "build": "cross-env DB_TYPE=neon drizzle-kit push:pg && next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "drizzle-kit generate:pg",
@@ -26,6 +26,7 @@
     "ai": "^4.0.22",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cross-env": "^7.0.3",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.29.3",
     "lucide-react": "^0.469.0",
