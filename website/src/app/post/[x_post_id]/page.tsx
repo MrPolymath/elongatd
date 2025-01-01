@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Moon,
   Sun,
+  Chrome,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -160,18 +161,6 @@ function Attachment({ attachments }: { attachments: Attachment[] }) {
         </a>
       ))}
     </div>
-  );
-}
-
-function XLogo() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-6 w-6 fill-current"
-    >
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
-    </svg>
   );
 }
 
@@ -362,17 +351,16 @@ export default function ThreadPost() {
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="container max-w-4xl mx-auto px-4">
           <div className="flex items-center justify-between h-14">
-            {/* Left side: X Origin Link and Theme Toggle */}
+            {/* Left side: Explore Link and Theme Toggle */}
             <div className="flex items-center gap-4">
-              <Link
-                href={originalUrl}
-                className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
-                target="_blank"
-                rel="noopener noreferrer"
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="text-lg font-semibold hover:bg-muted/50"
               >
-                <XLogo />
-                <span className="text-[15px]">View original</span>
-              </Link>
+                <Link href="/">Explore</Link>
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -494,33 +482,44 @@ export default function ThreadPost() {
         <article className="prose dark:prose-invert prose-xl max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-em:text-foreground">
           {/* Author Info */}
           <div className="flex flex-col gap-6 mb-12 not-prose bg-muted/30 rounded-xl p-6 border border-border/40">
-            <Link
-              href={`https://x.com/${author.username}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-start gap-5 hover:opacity-90 transition-opacity"
-            >
-              <Avatar className="h-14 w-14">
-                <AvatarImage src={author.profile_image_url} />
-                <AvatarFallback>
-                  {author.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-semibold text-foreground truncate">
-                    {author.name}
-                  </h2>
-                  {author.verified && <VerifiedBadge />}
+            <div className="flex items-start justify-between">
+              <Link
+                href={`https://x.com/${author.username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-start gap-5 hover:opacity-90 transition-opacity"
+              >
+                <Avatar className="h-14 w-14">
+                  <AvatarImage src={author.profile_image_url} />
+                  <AvatarFallback>
+                    {author.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-semibold text-foreground truncate">
+                      {author.name}
+                    </h2>
+                    {author.verified && <VerifiedBadge />}
+                  </div>
+                  <p className="text-muted-foreground truncate">
+                    @{author.username}
+                  </p>
                 </div>
-                <p className="text-muted-foreground truncate">
-                  @{author.username}
-                </p>
-              </div>
-            </Link>
+              </Link>
+              <Link
+                href={originalUrl}
+                className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 group/link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View original
+                <ExternalLink className="h-3 w-3 group-hover/link:translate-x-0.5 transition-transform" />
+              </Link>
+            </div>
 
             <div className="space-y-4">
               {author.description && (
@@ -700,15 +699,20 @@ export default function ThreadPost() {
       </main>
 
       {/* Extension Promo */}
-      <Link
-        href="https://github.com/MrPolymath/elongatd"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 bg-gradient-to-r from-purple-500/50 to-blue-500/50 hover:from-purple-500 hover:to-blue-500 text-muted-foreground hover:text-foreground px-4 py-3 rounded-lg shadow-lg transition-all duration-200 text-sm font-medium flex items-center gap-2 group"
+      <Button
+        variant="default"
+        size="sm"
+        className="fixed bottom-6 right-6 rounded-full gap-2 shadow-lg scale-125"
+        onClick={() =>
+          window.open(
+            "https://chrome.google.com/webstore/detail/your-extension-id",
+            "_blank"
+          )
+        }
       >
-        <span>✨ Install the extension</span>
-        <ExternalLink className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-      </Link>
+        <Chrome className="h-4 w-4" />
+        Install Extension
+      </Button>
     </div>
   );
 }

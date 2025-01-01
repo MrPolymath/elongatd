@@ -11,6 +11,7 @@ import { relations } from "drizzle-orm";
 export const threads = pgTable("threads", {
   id: text("id").primaryKey(), // This will be the X post ID
   created_at: timestamp("created_at").notNull(),
+  added_at: timestamp("added_at").notNull().defaultNow(),
 
   // Author information
   author_id: text("author_id").notNull(),

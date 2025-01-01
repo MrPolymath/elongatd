@@ -1,27 +1,18 @@
 import type { Config } from "drizzle-kit";
 import * as dotenv from "dotenv";
 
-// Load environment variables
-dotenv.config();
+// Load the appropriate .env file based on the DRIZZLE_ENV environment variable
+const envFile = process.env.DRIZZLE_ENV === "prod" ? ".env.local" : ".env";
+dotenv.config({ path: envFile });
 
-// Get the database URL based on environment
-const connectionString =
-  process.env.POSTGRES_URL ||
-  process.env.DATABASE_URL ||
-  process.env.POSTGRES_URL_NON_POOLING ||
-  process.env.DATABASE_URL_UNPOOLED;
+const environment = process.env.DRIZZLE_ENV || "development";
+const dbType = process.env.DB_TYPE || "local";
+const usingConnectionString = true;
 
-if (!connectionString) {
-  throw new Error(
-    "No database connection string found. Please set POSTGRES_URL or DATABASE_URL environment variable."
-  );
-}
-
-// Log the configuration being used (without sensitive details)
 console.log("Database configuration:", {
-  environment: process.env.NODE_ENV || "development",
-  dbType: process.env.DB_TYPE || "local",
-  usingConnectionString: !!connectionString,
+  environment,
+  dbType,
+  usingConnectionString,
 });
 
 export default {
@@ -29,8 +20,6 @@ export default {
   out: "./drizzle",
   driver: "pg",
   dbCredentials: {
-    connectionString,
+    connectionString: process.env.DATABASE_URL!,
   },
-  verbose: true,
-  strict: true,
 } satisfies Config;

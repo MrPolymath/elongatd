@@ -36,6 +36,13 @@
       "when": 1735720587550,
       "tag": "0004_fearless_sleepwalker",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1735757582209,
+      "tag": "0005_vengeful_supernaut",
+      "breakpoints": true
     }
   ]
 }

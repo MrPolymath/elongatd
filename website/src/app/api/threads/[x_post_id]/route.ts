@@ -194,6 +194,7 @@ export async function POST(
             total_replies: threadData.total_metrics.replies,
             total_retweets: threadData.total_metrics.retweets,
             total_likes: threadData.total_metrics.likes,
+            added_at: new Date(),
           })
           .where(eq(schema.threads.id, threadData.thread_id));
 
@@ -217,6 +218,7 @@ export async function POST(
           author_created_at: new Date(threadData.author.created_at),
           author_url: threadData.author.url || null,
           created_at: new Date(threadData.created_at),
+          added_at: new Date(),
           total_replies: threadData.total_metrics.replies,
           total_retweets: threadData.total_metrics.retweets,
           total_likes: threadData.total_metrics.likes,
