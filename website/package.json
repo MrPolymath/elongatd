@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "cross-env DB_TYPE=neon drizzle-kit push:pg --accept-data-loss && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "drizzle-kit generate:pg",
@@ -12,6 +12,7 @@
     "db:start": "docker compose up -d",
     "db:stop": "docker compose down",
     "db:seed": "tsx src/db/seed.ts",
+    "db:init": "tsx scripts/init-db.ts",
     "dev:local": "npm run db:start && npm run dev",
     "db:drop": "drizzle-kit drop --out drizzle --schema src/db/schema.ts",
     "db:studio": "drizzle-kit studio"
