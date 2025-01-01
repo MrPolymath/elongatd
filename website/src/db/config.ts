@@ -24,23 +24,32 @@ function getLocalConnectionString(): string {
   return `postgres://${LOCAL_DB_USER}:${LOCAL_DB_PASS}@${LOCAL_DB_HOST}:${LOCAL_DB_PORT}/${LOCAL_DB_NAME}`;
 }
 
-function getVercelConnectionString(): string {
-  const { POSTGRES_URL } = process.env;
+function getNeonConnectionString(): string {
+  // Try different connection string formats that Neon provides
+  const connectionString =
+    process.env.POSTGRES_URL || // Vercel Postgres format
+    process.env.DATABASE_URL || // Standard format
+    process.env.POSTGRES_URL_NON_POOLING || // Non-pooling option
+    process.env.DATABASE_URL_UNPOOLED; // Unpooled option
 
-  if (!POSTGRES_URL) {
-    throw new Error("Missing Vercel Postgres configuration");
+  if (!connectionString) {
+    throw new Error(
+      "Missing Neon Postgres configuration. Please provide either POSTGRES_URL, DATABASE_URL, or their unpooled variants."
+    );
   }
 
-  return POSTGRES_URL;
+  return connectionString;
 }
 
 export function getDatabaseConfig(): DatabaseConfig {
-  const dbType = process.env.DB_TYPE || "local";
+  const environment = process.env.NODE_ENV || "development";
+  const dbType =
+    process.env.DB_TYPE || (environment === "production" ? "neon" : "local");
 
   return {
     connectionString:
-      dbType === "vercel"
-        ? getVercelConnectionString()
-        : getLocalConnectionString(),
+      dbType === "local"
+        ? getLocalConnectionString()
+        : getNeonConnectionString(),
   };
 }
