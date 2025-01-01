@@ -137,8 +137,50 @@ export function MarkdownWithMedia({ content, media }: MarkdownWithMediaProps) {
     "{media:$2}"
   );
 
-  // Split content by media placeholders
-  const parts = processedContent.split(/(\{media:\d+\})/);
+  // Split content by media placeholders but keep the delimiters
+  const parts = processedContent.split(/({media:\d+})/);
+
+  // Process parts to group consecutive images
+  const processedParts: (string | { type: string; items: Attachment[] })[] = [];
+  let currentImageGroup: Attachment[] = [];
+
+  parts.forEach((part, index) => {
+    const mediaMatch = part.match(/\{media:(\d+)\}/);
+    if (mediaMatch) {
+      const mediaId = mediaMatch[1];
+      const mediaItem = media[mediaId];
+      if (mediaItem) {
+        if (mediaItem.type === "image") {
+          currentImageGroup.push(mediaItem);
+        } else {
+          // If we have a non-image media and there were images before, flush the image group
+          if (currentImageGroup.length > 0) {
+            processedParts.push({
+              type: "image-group",
+              items: [...currentImageGroup],
+            });
+            currentImageGroup = [];
+          }
+          processedParts.push({ type: mediaItem.type, items: [mediaItem] });
+        }
+      }
+    } else if (part.trim()) {
+      // If we have images and encounter text, flush the image group
+      if (currentImageGroup.length > 0) {
+        processedParts.push({
+          type: "image-group",
+          items: [...currentImageGroup],
+        });
+        currentImageGroup = [];
+      }
+      processedParts.push(part);
+    }
+  });
+
+  // Handle any remaining images
+  if (currentImageGroup.length > 0) {
+    processedParts.push({ type: "image-group", items: [...currentImageGroup] });
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -149,32 +191,40 @@ export function MarkdownWithMedia({ content, media }: MarkdownWithMediaProps) {
         <p className="text-xl text-gray-400 mt-4">{content.summary}</p>
       </div>
       <div className="space-y-6">
-        {parts.map((part, index) => {
-          const mediaMatch = part.match(/\{media:(\d+)\}/);
-          if (mediaMatch) {
-            const mediaId = mediaMatch[1];
-            const mediaItem = media[mediaId];
-            return mediaItem ? (
-              <div key={`media-${index}`}>
-                {(mediaItem.type === "image" || mediaItem.type === "video") && (
-                  <div className="mx-auto max-w-2xl">
-                    <MediaRenderer attachments={[mediaItem]} />
-                  </div>
-                )}
-                {mediaItem.type === "link" && (
-                  <div className="mt-4">
-                    <MediaRenderer attachments={[mediaItem]} />
-                  </div>
-                )}
-              </div>
-            ) : null;
+        {processedParts.map((part, index) => {
+          if (typeof part === "string") {
+            return (
+              <ReactMarkdown key={`text-${index}`} components={components}>
+                {part}
+              </ReactMarkdown>
+            );
           }
 
-          return part ? (
-            <ReactMarkdown key={`text-${index}`} components={components}>
-              {part}
-            </ReactMarkdown>
-          ) : null;
+          if (part.type === "image-group") {
+            return (
+              <div key={`media-${index}`} className="mx-auto max-w-2xl">
+                <MediaRenderer attachments={part.items} />
+              </div>
+            );
+          }
+
+          if (part.type === "video") {
+            return (
+              <div key={`media-${index}`} className="mx-auto max-w-2xl">
+                <MediaRenderer attachments={part.items} />
+              </div>
+            );
+          }
+
+          if (part.type === "link") {
+            return (
+              <div key={`media-${index}`} className="mt-4">
+                <MediaRenderer attachments={part.items} />
+              </div>
+            );
+          }
+
+          return null;
         })}
       </div>
     </div>
