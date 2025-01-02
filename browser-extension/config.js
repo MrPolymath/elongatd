@@ -1,16 +1,19 @@
-// This will be replaced during build with 'production'
-// When developing (loading unpacked), default to development
-const ENV = "__BUILD_ENV__" === "production" ? "production" : "development";
-
 const config = {
   development: {
+    baseUrl: "http://localhost:3000",
     apiBaseUrl: "http://localhost:3000/api/threads",
+    authUrl: "https://www.elongatd.com",
   },
   production: {
+    baseUrl: "https://www.elongatd.com",
     apiBaseUrl: "https://www.elongatd.com/api/threads",
+    authUrl: "https://www.elongatd.com",
   },
 };
 
-// Make both ENV and config available globally
-window.ENV = ENV;
-window.config = config[ENV];
+// Use development config when loading as an unpacked extension
+const isDevelopment = !chrome.runtime.getManifest().update_url;
+const currentConfig = isDevelopment ? config.development : config.production;
+
+// Make config available globally
+window.extensionConfig = currentConfig;

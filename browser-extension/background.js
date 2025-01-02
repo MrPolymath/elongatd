@@ -1,10 +1,10 @@
 // Service worker initialization
 self.addEventListener("install", (event) => {
-  console.log("[Thread Extractor] Service worker installed");
+  console.log("[Elongatd] Service worker installed");
 });
 
 self.addEventListener("activate", (event) => {
-  console.log("[Thread Extractor] Service worker activated");
+  console.log("[Elongatd] Service worker activated");
 });
 
 // Function that will be injected into the page
@@ -28,7 +28,7 @@ function injectInterceptors() {
           })
         );
       } catch (err) {
-        console.error("[Thread Extractor] Error processing response:", err);
+        console.error("[Elongatd] Error processing response:", err);
       }
     }
     return response;
@@ -46,10 +46,7 @@ function injectInterceptors() {
             })
           );
         } catch (err) {
-          console.error(
-            "[Thread Extractor] Error processing XHR response:",
-            err
-          );
+          console.error("[Elongatd] Error processing XHR response:", err);
         }
       });
     }
@@ -67,12 +64,12 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         world: "MAIN",
       })
       .catch((err) =>
-        console.error("[Thread Extractor] Failed to inject script:", err)
+        console.error("[Elongatd] Failed to inject script:", err)
       );
   }
 });
 
-// Listen for messages from content script
+// Handle API requests from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "API_REQUEST") {
     const options = {
@@ -82,7 +79,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      mode: "cors",
+      credentials: "include", // Important for session cookies
     };
 
     fetch(request.url, options)
@@ -99,9 +96,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ success: true, data });
       })
       .catch((error) => {
-        console.error("[Thread Extractor] API request failed:", error);
+        console.error("[Elongatd] API request failed:", error);
         sendResponse({ success: false, error: error.message });
       });
+
     return true; // Will respond asynchronously
   }
 });

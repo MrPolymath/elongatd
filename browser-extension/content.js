@@ -1,46 +1,123 @@
-// Store the last TweetDetail response
+console.log("[Elongatd] Content script (Isolated) loaded");
+
+// Store the last TweetDetail response and auth status
 let lastTweetDetail = null;
 let notificationTimeout = null;
+let authStatus = null;
 
-// console.log("[Thread Extractor] Content script loaded");
+// Initialize auth status from storage
+chrome.storage.local.get(["authStatus"], (result) => {
+  console.log("[Elongatd] Loaded auth status:", result.authStatus);
+  authStatus = result.authStatus;
+});
 
 // Helper function to make API requests through background script
-async function makeAPIRequest(url) {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({ type: "API_REQUEST", url }, (response) => {
-      if (response.success) {
-        resolve(response.data);
-      } else {
-        reject(new Error(response.error));
-      }
+async function makeAPIRequest(url, options = {}) {
+  try {
+    console.log("[Elongatd] Making API request:", url);
+    const response = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        { type: "API_REQUEST", url, options },
+        (response) => {
+          if (response.success) {
+            resolve(response.data);
+          } else {
+            reject(new Error(response.error));
+          }
+        }
+      );
     });
-  });
+
+    console.log("[Elongatd] API response:", response);
+
+    // If the response includes auth information, update the stored auth status
+    if (response.isAuthenticated !== undefined) {
+      console.log("[Elongatd] Updating auth status:", response.isAuthenticated);
+      authStatus = response.isAuthenticated;
+      chrome.storage.local.set({ authStatus });
+    }
+
+    return response;
+  } catch (error) {
+    console.error("[Elongatd] API request error:", error);
+    // If we get an auth error, clear the stored auth status
+    if (error.message?.includes("unauthorized")) {
+      authStatus = false;
+      chrome.storage.local.set({ authStatus: false });
+    }
+    throw error;
+  }
 }
 
 // Create notification element
-function createNotification() {
+function createNotification(exists = true, isAuthenticated = false) {
   const notification = document.createElement("div");
-  notification.className = "elongatd-notification hidden";
-  notification.innerHTML = `
-    <div class="elongatd-notification-header">
-      <h3 class="elongatd-notification-title">View in Elongatd</h3>
-      <button class="elongatd-notification-close">×</button>
+  notification.className = "thread-extractor-notification hidden";
+
+  // If blog exists but user is not authenticated, show both buttons
+  if (exists && !isAuthenticated) {
+    notification.innerHTML = `
+    <div class="notification-content">
+      <h2>🧵 Thread detected</h2>
+      <p>There's a better way to read this.</p>
+      <div class="notification-buttons">
+        <button class="thread-extractor-button" id="viewThreadButton">
+          Read better version
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px">
+            <path d="M7 17L17 7"/>
+            <path d="M7 7h10v10"/>
+          </svg>
+        </button>
+        <button class="thread-extractor-button secondary" id="loginButton">
+          Login for a better experience
+        </button>
+      </div>
     </div>
-    <div class="elongatd-notification-content">
-      This thread is available in a better format on Elongatd.
+    <button class="close-button" id="closeButton">×</button>
+    `;
+  } else if (exists) {
+    notification.innerHTML = `
+    <div class="notification-content">
+      <h2>🧵 Thread detected</h2>
+      <p>There's a better way to read this.</p>
+      <div class="notification-buttons">
+        <button class="thread-extractor-button" id="viewThreadButton">
+          Read better version
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px">
+            <path d="M7 17L17 7"/>
+            <path d="M7 7h10v10"/>
+          </svg>
+        </button>
+      </div>
     </div>
-    <div class="elongatd-notification-actions">
-      <a href="#" class="elongatd-notification-button primary" id="view-thread">View Thread</a>
-      <a href="#" class="elongatd-notification-button secondary hidden" id="view-blog">Read Blog</a>
+    <button class="close-button" id="closeButton">×</button>
+    `;
+  } else {
+    notification.innerHTML = `
+    <div class="notification-content">
+      <h2>🧵 Thread detected</h2>
+      <p>There's a better way to read this.</p>
+      <div class="notification-buttons">
+        <button class="thread-extractor-button" id="create-and-view">
+          Create readable version
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px">
+            <path d="M7 17L17 7"/>
+            <path d="M7 7h10v10"/>
+          </svg>
+        </button>
+      </div>
     </div>
+    <button class="close-button" id="closeButton">×</button>
   `;
+  }
 
   document.body.appendChild(notification);
   return notification;
 }
 
 // Show notification
-function showNotification(postId, hasBlog) {
+async function showNotification(postId) {
+  console.log("[Elongatd] Showing notification for post:", postId);
   // Remove any existing notification
   const existingNotification = document.querySelector(
     ".thread-extractor-notification"
@@ -49,72 +126,89 @@ function showNotification(postId, hasBlog) {
     existingNotification.remove();
   }
 
-  // Create notification element
-  const notification = document.createElement("div");
-  notification.className = "thread-extractor-notification";
-
-  const button = document.createElement("button");
-  button.className = "thread-extractor-button";
-
-  if (hasBlog) {
-    button.textContent = "Read the better version";
-    button.onclick = () =>
-      window.open(`${window.config.webBaseUrl}/post/${postId}`, "_blank");
-  } else {
-    button.textContent = "Read better";
-    button.onclick = () =>
-      window.open(`${window.config.webBaseUrl}/post/${postId}`, "_blank");
-  }
-
-  notification.appendChild(button);
-
-  // Add notification to page
-  document.body.appendChild(notification);
-}
-
-// Check if thread exists and show notification
-async function checkThreadAndNotify(postId) {
   try {
-    // Check if thread exists in our system
-    const existsData = await makeAPIRequest(
-      `${window.config.apiBaseUrl}/${postId}/exists`
+    // Single API call that returns both blog existence and auth status
+    const response = await makeAPIRequest(
+      `https://www.elongatd.com/api/threads/${postId}/blogify/exists`,
+      { credentials: "include" }
     );
 
-    if (existsData.exists) {
-      try {
-        // Check if blog version exists
-        const blogData = await makeAPIRequest(
-          `${window.config.apiBaseUrl}/${postId}/blogify/exists`
-        );
-        showNotification(postId, blogData.exists);
-      } catch (error) {
-        // If blogify check fails, show the "Read better" button
-        showNotification(postId, false);
+    const { exists: blogExists, isAuthenticated } = response;
+    console.log(
+      "[Elongatd] Blog exists:",
+      blogExists,
+      "Is authenticated:",
+      isAuthenticated
+    );
+
+    const notification = createNotification(blogExists, isAuthenticated);
+
+    // Setup buttons based on state
+    if (blogExists) {
+      const viewButton = notification.querySelector("#viewThreadButton");
+      const loginButton = notification.querySelector("#loginButton");
+      const closeButton = notification.querySelector("#closeButton");
+
+      viewButton.onclick = () => {
+        window.open(`https://www.elongatd.com/post/${postId}`, "_blank");
+      };
+
+      if (loginButton) {
+        loginButton.onclick = () => {
+          window.open(`${window.extensionConfig.authUrl}/login`, "_blank");
+        };
       }
+
+      closeButton.onclick = () => {
+        notification.remove();
+      };
+    } else {
+      const createButton = notification.querySelector("#create-and-view");
+      const closeButton = notification.querySelector("#closeButton");
+
+      createButton.onclick = async () => {
+        try {
+          // Disable button and show loading state
+          createButton.disabled = true;
+          createButton.textContent = "Opening...";
+
+          // Extract thread info and send to API
+          const threadInfo = extractThreadInfoFromResponse(lastTweetDetail);
+          await makeAPIRequest(
+            `https://www.elongatd.com/api/threads/${postId}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(threadInfo),
+            }
+          );
+
+          // Open the thread page
+          window.open(`https://www.elongatd.com/post/${postId}`, "_blank");
+        } catch (error) {
+          console.error("[Elongatd] Error creating thread:", error);
+          // Reset button state on error
+          createButton.disabled = false;
+          createButton.textContent = "Create readable version";
+        }
+      };
+
+      closeButton.onclick = () => {
+        notification.remove();
+      };
     }
+
+    // Show notification
+    notification.classList.remove("hidden");
   } catch (error) {
-    console.error("[Thread Extractor] Error checking thread:", error);
+    console.error("[Elongatd] Error checking status:", error);
   }
 }
-
-// Listen for the tweet detail event
-window.addEventListener("tweet_detail_captured", function (event) {
-  // console.log("[Thread Extractor] Tweet detail captured:", event.detail.data);
-  lastTweetDetail = event.detail.data;
-
-  // Get post ID from URL
-  const postId = window.location.pathname.split("/status/")[1]?.split("/")[0];
-  if (postId) {
-    checkThreadAndNotify(postId);
-  }
-});
 
 // Function to extract thread information from API response
 function extractThreadInfoFromResponse(response) {
-  // console.log(
-    "[Thread Extractor] Extracting thread info from response:",
-    response
-  );
   try {
     const data =
       response.data.threaded_conversation_with_injections_v2.instructions[0];
@@ -163,7 +257,6 @@ function extractThreadInfoFromResponse(response) {
     const mainTweetText =
       mainTweetContent.note_tweet?.note_tweet_results?.result?.text ||
       mainTweetLegacy.full_text;
-    // console.log("[Thread Extractor] Main tweet text:", mainTweetText);
     tweets.push({
       id: mainTweetContent.rest_id,
       text: mainTweetText,
@@ -189,7 +282,6 @@ function extractThreadInfoFromResponse(response) {
           const replyText =
             tweetContent.note_tweet?.note_tweet_results?.result?.text ||
             tweetContent.legacy.full_text;
-          // console.log("[Thread Extractor] Reply tweet text:", replyText);
           tweets.push({
             id: tweetContent.rest_id,
             text: replyText,
@@ -227,82 +319,35 @@ function extractThreadInfoFromResponse(response) {
       },
     };
 
-    // console.log(
-      "[Thread Extractor] Successfully extracted thread info:",
-      result
-    );
+    console.log("[Elongatd] Thread extracted successfully:", {
+      id: result.thread_id,
+      author: result.author.username,
+      tweetCount: result.tweets.length,
+    });
     return result;
   } catch (error) {
-    console.error("[Thread Extractor] Error extracting thread info:", error);
+    console.error("[Elongatd] Error extracting thread info:", error);
     throw error;
   }
 }
 
-// Helper function to extract tweet information
-function extractTweetInfo(tweetContent) {
-  const legacy = tweetContent.legacy;
-
-  // Get text from note_tweet_results
-  const text = tweetContent.note_tweet?.note_tweet_results?.result?.text || "";
-  if (!text) {
-    console.error("[Thread Extractor] No text found in tweet:", tweetContent);
-    throw new Error("No text found in tweet");
-  }
-
-  const tweet = {
-    id: tweetContent.rest_id,
-    text: text,
-    created_at: legacy.created_at,
-    metrics: {
-      replies: legacy.reply_count,
-      retweets: legacy.retweet_count,
-      likes: legacy.favorite_count,
-      views: tweetContent.views?.count || 0,
-      bookmarks: legacy.bookmark_count || 0,
-    },
-    attachments: extractAttachments(tweetContent),
-  };
-
-  // console.log("[Thread Extractor] Extracted tweet:", {
-    id: tweet.id,
-    text: tweet.text,
-  });
-  return tweet;
-}
-
+// Helper function to extract attachments
 function extractAttachments(tweet) {
-  // console.log("[Thread Extractor] Extracting attachments from tweet:", {
-    hasExtendedEntities: !!tweet.legacy?.extended_entities,
-    hasCard: !!tweet.card,
-    tweetData: tweet,
-  });
-
   const attachments = [];
 
   // Extract media (images and videos)
   if (tweet.legacy?.extended_entities?.media) {
-    // console.log(
-      "[Thread Extractor] Found media attachments:",
-      tweet.legacy.extended_entities.media
-    );
     tweet.legacy.extended_entities.media.forEach((media) => {
       if (media.type === "photo") {
-        // console.log("[Thread Extractor] Processing photo:", media);
         attachments.push({
           type: "image",
           url: media.media_url_https,
           original_url: media.url,
         });
       } else if (media.type === "video") {
-        // console.log("[Thread Extractor] Processing video:", media);
         // Filter to only MP4s and sort by bitrate
         const mp4Variants = media.video_info.variants.filter(
           (v) => v.content_type === "video/mp4"
-        );
-
-        // console.log(
-          "[Thread Extractor] MP4 variants before sorting:",
-          mp4Variants
         );
 
         // Sort by bitrate in descending order
@@ -312,15 +357,8 @@ function extractAttachments(tweet) {
           return bitrateB - bitrateA;
         });
 
-        // console.log("[Thread Extractor] Sorted variants:", sortedVariants);
-
         if (sortedVariants.length > 0) {
           const highestQuality = sortedVariants[0];
-          // console.log(
-            "[Thread Extractor] Selected highest quality variant:",
-            highestQuality
-          );
-
           attachments.push({
             type: "video",
             url: highestQuality.url,
@@ -342,10 +380,6 @@ function extractAttachments(tweet) {
 
   // Extract card/link preview
   if (tweet.card?.legacy?.binding_values) {
-    // console.log(
-      "[Thread Extractor] Found card:",
-      tweet.card.legacy.binding_values
-    );
     const values = tweet.card.legacy.binding_values.reduce(
       (acc, { key, value }) => {
         acc[key] = value.string_value;
@@ -355,7 +389,6 @@ function extractAttachments(tweet) {
     );
 
     if (values.title || values.description) {
-      // console.log("[Thread Extractor] Adding link attachment:", values);
       attachments.push({
         type: "link",
         title: values.title,
@@ -365,86 +398,104 @@ function extractAttachments(tweet) {
     }
   }
 
-  // console.log("[Thread Extractor] Final attachments:", attachments);
   return attachments;
 }
 
-// Function to send data to our API
-async function sendToApi(threadInfo, postId) {
+// Listen for tweet detail responses
+document.addEventListener("tweet_detail_captured", async (event) => {
+  console.log("[Elongatd] Tweet detail captured event received");
   try {
-    // console.log("[Thread Extractor] Sending data to API:", {
-      url: `${window.config.apiBaseUrl}/${postId}`,
-      data: threadInfo,
-    });
+    const data = event.detail.data;
+    if (!data) return;
 
-    const response = await fetch(`${window.config.apiBaseUrl}/${postId}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(threadInfo),
-    });
+    // Extract tweet ID from the response
+    const tweetResult =
+      data.data?.threaded_conversation_with_injections_v2?.instructions?.[0]
+        ?.entries?.[0]?.content?.itemContent?.tweet_results?.result;
+    if (!tweetResult) return;
 
-    const result = await response.json();
-    // console.log("[Thread Extractor] API response:", result);
-    return result;
+    const tweetId = tweetResult.rest_id;
+    if (!tweetId) return;
+
+    console.log("[Elongatd] Processing tweet:", tweetId);
+    lastTweetDetail = data;
+
+    // First check if blog exists
+    const blogStatus = await makeAPIRequest(
+      `${window.extensionConfig.apiBaseUrl}/${tweetId}/blogify/exists`,
+      { credentials: "include" }
+    );
+
+    const { exists: blogExists, isAuthenticated } = blogStatus;
+
+    // If blog doesn't exist, store the thread data
+    if (!blogExists) {
+      const threadInfo = extractThreadInfoFromResponse(data);
+      await makeAPIRequest(`${window.extensionConfig.apiBaseUrl}/${tweetId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(threadInfo),
+      });
+    }
+
+    // Create and show notification
+    const notification = createNotification(blogExists, isAuthenticated);
+
+    // Setup buttons based on state
+    if (blogExists) {
+      const viewButton = notification.querySelector("#viewThreadButton");
+      const loginButton = notification.querySelector("#loginButton");
+      const closeButton = notification.querySelector("#closeButton");
+
+      viewButton.onclick = () => {
+        window.open(
+          `${window.extensionConfig.baseUrl}/post/${tweetId}`,
+          "_blank"
+        );
+      };
+
+      if (loginButton) {
+        loginButton.onclick = () => {
+          window.open(`${window.extensionConfig.authUrl}/login`, "_blank");
+        };
+      }
+
+      closeButton.onclick = () => {
+        notification.remove();
+      };
+    } else {
+      const createButton = notification.querySelector("#create-and-view");
+      const closeButton = notification.querySelector("#closeButton");
+
+      createButton.onclick = async () => {
+        try {
+          // Disable button and show loading state
+          createButton.disabled = true;
+          createButton.textContent = "Opening...";
+
+          // Open the thread page
+          window.open(
+            `${window.extensionConfig.baseUrl}/post/${tweetId}`,
+            "_blank"
+          );
+        } catch (error) {
+          console.error("[Elongatd] Error creating thread:", error);
+          // Reset button state on error
+          createButton.disabled = false;
+          createButton.textContent = "Create readable version";
+        }
+      };
+
+      closeButton.onclick = () => {
+        notification.remove();
+      };
+    }
+
+    // Show notification
+    notification.classList.remove("hidden");
   } catch (error) {
-    console.error("[Thread Extractor] Error sending data to API:", error);
-    throw error;
-  }
-}
-
-// Listen for messages from the popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  // console.log("[Thread Extractor] Received message:", request);
-
-  if (request.action === "extractThread") {
-    // Get the post ID from the URL
-    const postId = window.location.pathname.split("/status/")[1];
-    if (!postId) {
-      console.error("[Thread Extractor] Could not extract post ID from URL");
-      sendResponse({
-        success: false,
-        error: "Could not extract post ID from URL",
-      });
-      return true;
-    }
-
-    if (!lastTweetDetail) {
-      console.error("[Thread Extractor] No tweet data available");
-      sendResponse({
-        success: false,
-        error:
-          "No tweet data available. Please refresh the page and try again.",
-      });
-      return true;
-    }
-
-    try {
-      // console.log(
-        "[Thread Extractor] Processing captured tweet data:",
-        lastTweetDetail
-      );
-      const threadInfo = extractThreadInfoFromResponse(lastTweetDetail);
-
-      // Send to our API
-      sendToApi(threadInfo, postId)
-        .then((result) => {
-          // console.log("[Thread Extractor] Successfully processed thread");
-          sendResponse({
-            success: true,
-            message: "Thread data processed successfully",
-          });
-        })
-        .catch((error) => {
-          console.error("[Thread Extractor] Error processing thread:", error);
-          sendResponse({ success: false, error: error.message });
-        });
-    } catch (error) {
-      console.error("[Thread Extractor] Error processing thread:", error);
-      sendResponse({ success: false, error: error.message });
-    }
-
-    return true;
+    console.error("[Elongatd] Error processing tweet detail:", error);
   }
 });
