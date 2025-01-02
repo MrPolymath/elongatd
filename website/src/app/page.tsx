@@ -152,7 +152,7 @@ export default function Home() {
             {threads.map((thread) => (
               <Link
                 key={thread.id}
-                href={`/post/${thread.id}?view=blog`}
+                href={`/post/${thread.id}`}
                 className="block group"
               >
                 <article className="p-4 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors">

@@ -1,95 +1,107 @@
-.elongatd-notification {
+.thread-extractor-notification {
   position: fixed;
-  top: 16px;
-  right: 16px;
-  width: 320px;
-  background: rgb(22, 24, 28);
-  color: rgb(247, 249, 249);
-  border-radius: 16px;
-  box-shadow: rgba(255, 255, 255, 0.2) 0px 0px 15px,
-    rgba(255, 255, 255, 0.15) 0px 0px 3px 1px;
+  top: 20px;
+  right: 20px;
   z-index: 9999;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-    Arial, sans-serif;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 20px rgba(255, 255, 255, 0.1);
+  animation: slide-in 0.3s ease-out;
+  color: white;
+  width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
 }
 
-.elongatd-notification.hidden {
+.thread-extractor-notification.hidden {
   display: none;
 }
 
-.notification-content {
-  padding: 16px;
+.thread-extractor-notification h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.01em;
 }
 
-.notification-content h2 {
-  font-size: 20px;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-}
-
-.notification-content p {
-  font-size: 15px;
-  line-height: 20px;
-  color: rgb(113, 118, 123);
+.thread-extractor-notification p {
+  font-size: 14px;
   margin: 0 0 16px 0;
+  color: rgba(255, 255, 255, 0.8);
+  letter-spacing: -0.01em;
+  line-height: 1.4;
 }
 
 .notification-buttons {
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
-.notification-button {
-  flex: 1;
-  padding: 8px 16px;
-  border-radius: 9999px;
+.thread-extractor-button {
+  color: white;
   font-size: 14px;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
+  background: linear-gradient(to right, #8b5cf6, #3b82f6);
   border: none;
-  outline: none;
+  padding: 8px 16px;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
-.thread-button {
-  background: transparent;
-  color: rgb(113, 118, 123);
-  border: 1px solid rgb(51, 54, 57);
+.thread-extractor-button svg {
+  transition: transform 0.2s ease;
 }
 
-.thread-button:hover {
-  background: rgba(239, 243, 244, 0.1);
-  color: rgb(247, 249, 249);
+.thread-extractor-button:hover svg {
+  transform: translate(1px, -1px);
 }
 
-.blog-button {
-  background: linear-gradient(to right, rgb(139, 92, 246), rgb(59, 130, 246));
-  color: white;
-}
-
-.blog-button:hover {
-  opacity: 0.9;
+.thread-extractor-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .close-button {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: transparent;
   border: none;
-  color: rgb(113, 118, 123);
-  font-size: 24px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 18px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .close-button:hover {
-  background: rgba(239, 243, 244, 0.1);
-  color: rgb(247, 249, 249);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }

@@ -1,22 +1,13 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  MessageCircle,
-  Heart,
-  Repeat2,
-  Share,
-  ExternalLink,
-  Moon,
-  Sun,
-  Chrome,
-} from "lucide-react";
+import { Moon, Sun, Chrome, Share, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { MarkdownWithMedia } from "@/components/markdown-with-media";
 import { ImageCarousel } from "@/components/image-carousel";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Image from "next/image";
 
 // Types for our thread data
@@ -182,12 +173,10 @@ export default function ThreadPost() {
   const postId = params.x_post_id as string;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [blogifyLoading, setBlogifyLoading] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [blogifiedContent, setBlogifiedContent] = useState<BlogContent | null>(
     null
   );
-  const [viewMode, setViewMode] = useState<"thread" | "blog">("thread");
   const [showCopiedFeedback, setShowCopiedFeedback] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
@@ -218,14 +207,7 @@ export default function ThreadPost() {
   };
 
   useEffect(() => {
-    // Get view parameter from URL
-    const searchParams = new URLSearchParams(window.location.search);
-    const viewParam = searchParams.get("view");
-    if (viewParam === "blog" || viewParam === "thread") {
-      setViewMode(viewParam);
-    }
-
-    const fetchThreadData = async () => {
+    const fetchData = async () => {
       try {
         const response = await fetch(`/api/threads/${postId}`);
         if (!response.ok) {
@@ -242,18 +224,15 @@ export default function ThreadPost() {
           const { exists, content } = await blogExistsResponse.json();
           if (exists && content) {
             setBlogContent(content);
-            // Only switch to blog view if it was requested
-            if (viewParam === "blog") {
-              setViewMode("blog");
-            }
           } else {
-            // If blog doesn't exist, always show thread view
-            setViewMode("thread");
-            setBlogifiedContent(null);
-            // Update URL to reflect thread view
-            const url = new URL(window.location.href);
-            url.searchParams.set("view", "thread");
-            window.history.pushState({}, "", url.toString());
+            // If blog doesn't exist, generate it
+            const blogResponse = await fetch(`/api/threads/${postId}/blogify`);
+            if (blogResponse.ok) {
+              const data = await blogResponse.json();
+              setBlogContent(data.content);
+            } else {
+              throw new Error("Failed to generate blog view");
+            }
           }
         }
       } catch (err) {
@@ -263,45 +242,8 @@ export default function ThreadPost() {
       }
     };
 
-    fetchThreadData();
+    fetchData();
   }, [postId]);
-
-  const handleBlogify = async () => {
-    if (blogifiedContent) {
-      // If blog content exists, just switch to blog view
-      setViewMode("blog");
-      const url = new URL(window.location.href);
-      url.searchParams.set("view", "blog");
-      window.history.pushState({}, "", url.toString());
-      return;
-    }
-
-    setBlogifyLoading(true);
-    try {
-      const response = await fetch(`/api/threads/${postId}/blogify`);
-      if (!response.ok) {
-        throw new Error("Failed to generate blog view");
-      }
-      const data = await response.json();
-      setBlogContent(data.content);
-      setViewMode("blog");
-      const url = new URL(window.location.href);
-      url.searchParams.set("view", "blog");
-      window.history.pushState({}, "", url.toString());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setBlogifyLoading(false);
-    }
-  };
-
-  const switchToThreadView = () => {
-    setViewMode("thread");
-    // Update URL without reloading the page
-    const url = new URL(window.location.href);
-    url.searchParams.set("view", "thread");
-    window.history.pushState({}, "", url.toString());
-  };
 
   const handleShare = async () => {
     try {
@@ -316,41 +258,30 @@ export default function ThreadPost() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <div className="text-xl">Loading thread...</div>
+        <div className="text-xl">Loading blog post...</div>
       </div>
     );
   }
 
-  if (error || !threadData) {
+  if (error || !threadData || !blogifiedContent) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-xl text-red-400">
-          {error || "Thread not found"}
+          {error || "Blog post not found"}
         </div>
       </div>
     );
   }
 
-  const { author, tweets, total_metrics } = threadData;
+  const { author } = threadData;
   const originalUrl = `https://x.com/${author.username}/status/${postId}`;
-
-  // Combine all tweet text and attachments in chronological order (oldest first)
-  const content = [...tweets]
-    .sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    )
-    .map((tweet) => ({
-      text: tweet.text,
-      attachments: tweet.attachments,
-    }));
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Sticky Header with Metrics */}
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border">
-        <div className="container max-w-4xl mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
+        <div className="container max-w-[1600px] mx-auto px-4 md:px-6">
+          <div className="flex items-center justify-between h-16">
             {/* Left side: Explore Link and Theme Toggle */}
             <div className="flex items-center gap-4">
               <Button
@@ -360,6 +291,20 @@ export default function ThreadPost() {
                 className="text-lg font-semibold hover:bg-muted/50"
               >
                 <Link href="/">Explore</Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-base rounded-full gap-2 border border-border/80 hover:bg-muted/50"
+                onClick={() =>
+                  window.open(
+                    "https://chrome.google.com/webstore/detail/your-extension-id",
+                    "_blank"
+                  )
+                }
+              >
+                <Chrome className="h-4 w-4" />
+                Install Extension
               </Button>
               <Button
                 variant="ghost"
@@ -375,98 +320,32 @@ export default function ThreadPost() {
               </Button>
             </div>
 
-            {/* Center: View Mode Selector */}
-            <div className="flex items-center gap-1 bg-background/50 rounded-full p-0.5 ring-1 ring-border">
+            {/* Right side: Share Button */}
+            <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="sm"
-                className={`${
-                  viewMode === "thread"
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                } transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium`}
-                onClick={switchToThreadView}
-                disabled={viewMode === "thread"}
+                asChild
+                className="text-muted-foreground hover:text-foreground flex items-center gap-2 text-base"
               >
-                Thread View
-              </Button>
-              {blogifiedContent ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`${
-                    viewMode === "blog"
-                      ? "bg-gradient-to-r from-purple-500/50 to-blue-500/50 text-foreground"
-                      : "text-transparent bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text hover:bg-muted hover:text-transparent hover:from-purple-400 hover:to-blue-400"
-                  } transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium`}
-                  onClick={handleBlogify}
-                  disabled={viewMode === "blog"}
+                <Link
+                  href={originalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5"
                 >
-                  Blog View
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-transparent bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text hover:bg-muted/50 hover:text-transparent hover:from-purple-400 hover:to-blue-400 transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium"
-                  onClick={handleBlogify}
-                  disabled={blogifyLoading}
-                >
-                  {blogifyLoading ? (
-                    <span className="text-muted-foreground">Converting...</span>
-                  ) : (
-                    <span>Convert to Blog</span>
-                  )}
-                </Button>
-              )}
-            </div>
-
-            {/* Right side: Interaction Metrics */}
-            <div className="flex items-center gap-6">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-blue-400 text-[15px] h-auto px-2 py-1.5 rounded-full font-normal group"
-                onClick={() => window.open(originalUrl, "_blank")}
-              >
-                <MessageCircle className="h-6 w-6 mr-0.5 group-hover:bg-blue-400/10 rounded-full transition-colors" />
-                <span>{formatNumber(total_metrics.replies)}</span>
+                  View original
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-muted-foreground hover:text-green-400 text-[15px] h-auto px-2 py-1.5 rounded-full font-normal group"
-                onClick={() =>
-                  window.open(
-                    `https://x.com/intent/retweet?tweet_id=${postId}`,
-                    "_blank"
-                  )
-                }
-              >
-                <Repeat2 className="h-6 w-6 mr-0.5 group-hover:bg-green-400/10 rounded-full transition-colors" />
-                <span>{formatNumber(total_metrics.retweets)}</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-pink-400 text-[15px] h-auto px-2 py-1.5 rounded-full font-normal group"
-                onClick={() =>
-                  window.open(
-                    `https://x.com/intent/like?tweet_id=${postId}`,
-                    "_blank"
-                  )
-                }
-              >
-                <Heart className="h-6 w-6 mr-0.5 group-hover:bg-pink-400/10 rounded-full transition-colors" />
-                <span>{formatNumber(total_metrics.likes)}</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-blue-400 h-auto p-2 rounded-full group relative"
+                className="text-muted-foreground hover:text-blue-400 flex items-center gap-2 relative text-base"
                 onClick={handleShare}
               >
-                <Share className="h-6 w-6 group-hover:bg-blue-400/10 rounded-full transition-colors" />
+                Share post
+                <Share className="h-5 w-5" />
                 {showCopiedFeedback && (
                   <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-sm bg-muted text-foreground px-2 py-1 rounded whitespace-nowrap">
                     URL copied!
@@ -478,173 +357,126 @@ export default function ThreadPost() {
         </div>
       </header>
 
-      <main className="container max-w-4xl mx-auto px-4 py-8">
-        <article className="prose dark:prose-invert prose-xl max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-em:text-foreground">
-          {/* Author Info */}
-          <div className="flex flex-col gap-6 mb-12 not-prose bg-muted/30 rounded-xl p-6 border border-border/40">
-            <div className="flex items-start justify-between">
-              <Link
-                href={`https://x.com/${author.username}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-start gap-5 hover:opacity-90 transition-opacity"
-              >
-                <Avatar className="h-14 w-14">
-                  <AvatarImage src={author.profile_image_url} />
-                  <AvatarFallback>
-                    {author.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-semibold text-foreground truncate">
-                      {author.name}
-                    </h2>
-                    {author.verified && <VerifiedBadge />}
+      <main className="container max-w-[1600px] mx-auto px-4 md:px-6 py-8">
+        <div className="flex flex-col lg:flex-row lg:gap-12">
+          {/* Author Info - Left Sidebar */}
+          <aside className="w-full lg:w-80 flex-shrink-0 mb-8 lg:mb-0">
+            <div className="lg:sticky lg:top-24">
+              <div className="flex flex-col gap-8 not-prose bg-muted/30 rounded-xl p-8 border border-border/40">
+                {/* Profile Header */}
+                <Link
+                  href={`https://x.com/${author.username}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center gap-4 hover:opacity-90 transition-opacity"
+                >
+                  <Avatar className="h-14 w-14 border-2 border-border/40">
+                    <AvatarImage src={author.profile_image_url} />
+                    <AvatarFallback>
+                      {author.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-semibold text-foreground truncate">
+                        {author.name}
+                      </h2>
+                      {author.verified && <VerifiedBadge />}
+                    </div>
+                    <p className="text-muted-foreground truncate text-sm">
+                      @{author.username}
+                    </p>
                   </div>
-                  <p className="text-muted-foreground truncate">
-                    @{author.username}
-                  </p>
-                </div>
-              </Link>
-              <Link
-                href={originalUrl}
-                className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 group/link"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                View original
-                <ExternalLink className="h-3 w-3 group-hover/link:translate-x-0.5 transition-transform" />
-              </Link>
-            </div>
+                </Link>
 
-            <div className="space-y-4">
-              {author.description && (
-                <p className="text-foreground text-base leading-normal">
-                  {(() => {
-                    const urlRegex = /https?:\/\/[^\s]+/g;
-                    const matches = [...author.description.matchAll(urlRegex)];
+                {/* Bio */}
+                {author.description && (
+                  <p className="text-foreground text-sm leading-relaxed">
+                    {(() => {
+                      const urlRegex = /https?:\/\/[^\s]+/g;
+                      const matches = [
+                        ...author.description.matchAll(urlRegex),
+                      ];
 
-                    if (matches.length === 0) {
-                      return author.description;
-                    }
-
-                    const fragments = [];
-                    let lastIndex = 0;
-
-                    matches.forEach((match) => {
-                      const url = match[0];
-
-                      // Add text before the URL
-                      if (match.index! > lastIndex) {
-                        fragments.push(
-                          author.description.slice(lastIndex, match.index)
-                        );
+                      if (matches.length === 0) {
+                        return author.description;
                       }
 
-                      // Add the URL as a link
-                      fragments.push(
-                        <a
-                          key={`bio-link-${match.index}`}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-400 hover:text-blue-300"
-                        >
-                          {url}
-                        </a>
-                      );
+                      const fragments = [];
+                      let lastIndex = 0;
 
-                      lastIndex = match.index! + url.length;
-                    });
+                      matches.forEach((match) => {
+                        const url = match[0];
 
-                    // Add any remaining text
-                    if (lastIndex < author.description.length) {
-                      fragments.push(author.description.slice(lastIndex));
-                    }
+                        // Add text before the URL
+                        if (match.index! > lastIndex) {
+                          fragments.push(
+                            author.description.slice(lastIndex, match.index)
+                          );
+                        }
 
-                    return fragments;
-                  })()}
-                </p>
-              )}
+                        // Add the URL as a link
+                        fragments.push(
+                          <a
+                            key={`bio-link-${match.index}`}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300"
+                          >
+                            here
+                          </a>
+                        );
 
-              <div className="flex flex-wrap gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-foreground">
-                    {formatNumber(author.followers_count)}
-                  </span>
-                  <span className="text-muted-foreground">Followers</span>
-                </div>
-                {author.following_count && (
-                  <>
+                        lastIndex = match.index! + url.length;
+                      });
+
+                      // Add any remaining text
+                      if (lastIndex < author.description.length) {
+                        fragments.push(author.description.slice(lastIndex));
+                      }
+
+                      return fragments;
+                    })()}
+                  </p>
+                )}
+
+                {/* Stats */}
+                <div className="flex flex-col gap-2.5 text-sm border-t border-border/40 pt-6">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-foreground">
+                      {formatNumber(author.followers_count)}
+                    </span>
+                    <span className="text-muted-foreground">Followers</span>
+                  </div>
+                  {author.following_count && (
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-foreground">
                         {formatNumber(author.following_count)}
                       </span>
                       <span className="text-muted-foreground">Following</span>
                     </div>
-                  </>
-                )}
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Joined</span>
-                  <span className="text-foreground">
-                    {new Date(author.created_at).toLocaleDateString("en-US", {
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </span>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Joined</span>
+                    <span className="text-foreground">
+                      {new Date(author.created_at).toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </aside>
 
-          {/* Content */}
-          {viewMode === "thread" ? (
-            <div className="space-y-8">
-              {content.map((tweet, index) => (
-                <div key={index} className="prose dark:prose-invert prose-xl">
-                  <div className="relative flow-root">
-                    {tweet.attachments?.some(
-                      (a) => a.type === "image" || a.type === "video"
-                    ) && (
-                      <div className="lg:float-right lg:ml-6 lg:w-[40%] mb-4">
-                        <Attachment attachments={tweet.attachments} />
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <MarkdownWithMedia
-                        content={{
-                          content: tweet.text.replace(
-                            /(?<=\S)\s+https:\/\/t\.co\/\w+$/,
-                            ""
-                          ),
-                          title: "",
-                          summary: "",
-                        }}
-                        media={tweet.attachments.reduce((acc, curr) => {
-                          acc[curr.url] = curr;
-                          return acc;
-                        }, {} as Record<string, Attachment>)}
-                      />
-                    </div>
-                    {tweet.attachments?.some((a) => a.type === "link") && (
-                      <div className="mt-4">
-                        <Attachment
-                          attachments={tweet.attachments.filter(
-                            (a) => a.type === "link"
-                          )}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            blogifiedContent && (
+          {/* Blog Content - Right Side */}
+          <article className="flex-1 max-w-4xl">
+            <div className="prose dark:prose-invert prose-xl prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-em:text-foreground">
               <div className="space-y-8">
                 <h1 className="text-4xl font-bold mb-6 text-foreground">
                   {blogifiedContent.title}
@@ -673,46 +505,30 @@ export default function ThreadPost() {
                   )}
                 </div>
               </div>
-            )
-          )}
-        </article>
 
-        {/* Footer */}
-        <div className="relative mt-24">
-          <footer className="pt-6 border-t border-border">
-            <div className="flex items-center justify-between text-base text-muted-foreground">
-              <time>
-                Originally posted on{" "}
-                {new Date(threadData.created_at).toLocaleDateString()}
-              </time>
-              <Link
-                href={originalUrl}
-                className="text-blue-400 hover:text-blue-300"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                View on X
-              </Link>
+              {/* Footer */}
+              <div className="relative mt-24">
+                <footer className="pt-6 border-t border-border">
+                  <div className="flex items-center justify-between text-base text-muted-foreground">
+                    <time>
+                      Originally posted on{" "}
+                      {new Date(threadData.created_at).toLocaleDateString()}
+                    </time>
+                    <Link
+                      href={originalUrl}
+                      className="text-blue-400 hover:text-blue-300"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View on X
+                    </Link>
+                  </div>
+                </footer>
+              </div>
             </div>
-          </footer>
+          </article>
         </div>
       </main>
-
-      {/* Extension Promo */}
-      <Button
-        variant="default"
-        size="sm"
-        className="fixed bottom-6 right-6 rounded-full gap-2 shadow-lg scale-125"
-        onClick={() =>
-          window.open(
-            "https://chrome.google.com/webstore/detail/your-extension-id",
-            "_blank"
-          )
-        }
-      >
-        <Chrome className="h-4 w-4" />
-        Install Extension
-      </Button>
     </div>
   );
 }

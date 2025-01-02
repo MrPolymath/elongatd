@@ -2,8 +2,6 @@
 let lastTweetDetail = null;
 let notificationTimeout = null;
 
-console.log("[Thread Extractor] Main world script loaded");
-
 // Send config to isolated world
 window.postMessage(
   {
@@ -18,25 +16,36 @@ window.postMessage(
 // Create notification element
 function createNotification(exists = true) {
   const notification = document.createElement("div");
-  notification.className = "elongatd-notification hidden";
+  notification.className = "thread-extractor-notification hidden";
   notification.innerHTML = exists
     ? `
     <div class="notification-content">
-      <h2>View in Elongatd</h2>
-      <p>This thread is available in a better format on Elongatd.</p>
+      <h2>🧵 Thread detected</h2>
+      <p>There's a better way to read this.</p>
       <div class="notification-buttons">
-        <button class="notification-button thread-button" id="viewThreadButton">View Thread</button>
-        <button class="notification-button blog-button" id="readBlogButton">Read Blog</button>
+        <button class="thread-extractor-button" id="viewThreadButton">
+          Read better version
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px">
+            <path d="M7 17L17 7"/>
+            <path d="M7 7h10v10"/>
+          </svg>
+        </button>
       </div>
     </div>
     <button class="close-button" id="closeButton">×</button>
     `
     : `
     <div class="notification-content">
-      <h2>Read in Elongatd</h2>
-      <p>View this thread in a better format on Elongatd.</p>
+      <h2>🧵 Thread detected</h2>
+      <p>There's a better way to read this.</p>
       <div class="notification-buttons">
-        <button class="notification-button blog-button" id="create-and-view">Open in Elongatd</button>
+        <button class="thread-extractor-button" id="create-and-view">
+          Create readable version
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px">
+            <path d="M7 17L17 7"/>
+            <path d="M7 7h10v10"/>
+          </svg>
+        </button>
       </div>
     </div>
     <button class="close-button" id="closeButton">×</button>
@@ -48,30 +57,24 @@ function createNotification(exists = true) {
 
 // Show notification with appropriate buttons
 function showNotification(postId, exists = false, hasBlog = false) {
-  // Always create a new notification
   const notification = createNotification(exists);
   const baseUrl = window.config.apiBaseUrl.replace("/api/threads", "");
 
   if (exists) {
-    // Add click handlers for thread and blog buttons
     const threadButton = notification.querySelector("#viewThreadButton");
-    const blogButton = notification.querySelector("#readBlogButton");
     const closeButton = notification.querySelector("#closeButton");
 
     threadButton.onclick = () => {
-      window.open(`${baseUrl}/post/${postId}?view=thread`, "_blank");
-    };
-
-    blogButton.onclick = () => {
-      window.open(`${baseUrl}/post/${postId}?view=blog`, "_blank");
+      window.open(`${baseUrl}/post/${postId}`, "_blank");
     };
 
     closeButton.onclick = () => {
       notification.remove();
     };
   } else {
-    // Add click handler for create-and-view button
     const createButton = notification.querySelector("#create-and-view");
+    const closeButton = notification.querySelector("#closeButton");
+
     createButton.onclick = async () => {
       try {
         // Disable button and show loading state
@@ -86,9 +89,12 @@ function showNotification(postId, exists = false, hasBlog = false) {
       } catch (error) {
         // Reset button state on error
         createButton.disabled = false;
-        createButton.textContent = "Open in Elongatd";
-        console.error("[Thread Extractor] Error creating thread:", error);
+        createButton.textContent = "Create readable version";
       }
+    };
+
+    closeButton.onclick = () => {
+      notification.remove();
     };
   }
 

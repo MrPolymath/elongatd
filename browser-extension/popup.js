@@ -42,11 +42,11 @@ document.addEventListener("DOMContentLoaded", async function () {
       const baseUrl = window.config.apiBaseUrl.replace("/api/threads", "");
 
       viewThreadButton.onclick = () => {
-        chrome.tabs.create({ url: `${baseUrl}/post/${postId}?view=thread` });
+        chrome.tabs.create({ url: `${baseUrl}/post/${postId}` });
       };
 
       readBlogButton.onclick = () => {
-        chrome.tabs.create({ url: `${baseUrl}/post/${postId}?view=blog` });
+        chrome.tabs.create({ url: `${baseUrl}/post/${postId}` });
       };
     } else {
       openElongatdButton.onclick = async () => {

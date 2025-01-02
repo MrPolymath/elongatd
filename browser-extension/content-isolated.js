@@ -88,6 +88,17 @@ function extractThreadInfoFromResponse(response) {
     const mainTweetLegacy = mainTweetContent.legacy;
     const user = mainTweetContent.core.user_results.result.legacy;
 
+    // Count the number of tweets in the thread
+    let tweetCount = 1; // Start with 1 for the main tweet
+    if (threadEntry && threadEntry.content.items) {
+      tweetCount += threadEntry.content.items.length;
+    }
+
+    // If there are less than 3 tweets, don't show the notification
+    if (tweetCount < 3) {
+      throw new Error("Not a thread (less than 3 tweets)");
+    }
+
     // Set author info from main tweet
     authorInfo = {
       id: mainTweetContent.core.user_results.result.rest_id,
@@ -177,10 +188,12 @@ function extractThreadInfoFromResponse(response) {
 
 // Helper function to make API requests through background script
 async function makeAPIRequest(url, options = {}) {
+  console.log("[Thread Extractor] Making API request:", { url, options });
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
       { type: "API_REQUEST", url, options },
       (response) => {
+        console.log("[Thread Extractor] API response received:", response);
         if (response.success) {
           resolve(response.data);
         } else {
@@ -198,18 +211,37 @@ async function checkThreadAndNotify(postId) {
     return;
   }
 
+  console.log("[Thread Extractor] Checking thread:", postId);
   try {
+    // First check if we have enough tweets to consider this a thread
+    try {
+      const threadData = extractThreadInfoFromResponse(lastTweetDetail);
+    } catch (error) {
+      if (error.message.includes("Not a thread")) {
+        console.log(
+          "[Thread Extractor] Not showing notification - too few tweets"
+        );
+        return;
+      }
+      throw error;
+    }
+
     // Check if thread exists in our system
-    const existsData = await makeAPIRequest(
-      `${config.apiBaseUrl}/${postId}/exists`
-    );
+    const existsUrl = `${config.apiBaseUrl}/${postId}/exists`;
+    console.log("[Thread Extractor] Checking exists URL:", existsUrl);
+
+    const existsData = await makeAPIRequest(existsUrl);
+    console.log("[Thread Extractor] Exists response:", existsData);
 
     if (existsData.exists) {
       try {
         // Check if blog version exists
-        const blogData = await makeAPIRequest(
-          `${config.apiBaseUrl}/${postId}/blogify`
-        );
+        const blogUrl = `${config.apiBaseUrl}/${postId}/blogify`;
+        console.log("[Thread Extractor] Checking blog URL:", blogUrl);
+
+        const blogData = await makeAPIRequest(blogUrl);
+        console.log("[Thread Extractor] Blog response:", blogData);
+
         window.postMessage(
           {
             type: "SHOW_NOTIFICATION",
@@ -220,6 +252,7 @@ async function checkThreadAndNotify(postId) {
           window.location.origin
         );
       } catch (error) {
+        // console.log("[Thread Extractor] Blog check failed:", error);
         // If blogify fails, still show the thread notification
         window.postMessage(
           {
@@ -232,6 +265,7 @@ async function checkThreadAndNotify(postId) {
         );
       }
     } else {
+      // console.log("[Thread Extractor] Thread doesn't exist, showing new thread notification");
       // Show notification for new thread
       window.postMessage(
         {
@@ -253,13 +287,10 @@ async function createAndViewThread(postId) {
   try {
     // Extract thread data from the page
     const threadData = extractThreadInfoFromResponse(lastTweetDetail);
-    console.log("[Thread Extractor] Extracted thread data:", threadData);
+    // console.log("[Thread Extractor] Extracted thread data:", threadData);
 
     // Send to our API
-    console.log("[Thread Extractor] Sending to API:", {
-      url: `${config.apiBaseUrl}/${postId}`,
-      data: threadData,
-    });
+    // console.log("[Thread Extractor] Sending to API:", { url: `${config.apiBaseUrl}/${postId}`, data: threadData });
 
     await makeAPIRequest(`${config.apiBaseUrl}/${postId}`, {
       method: "POST",
@@ -271,7 +302,7 @@ async function createAndViewThread(postId) {
 
     // Redirect to the thread view
     const baseUrl = config.apiBaseUrl.replace("/api/threads", "");
-    window.location.href = `${baseUrl}/post/${postId}?view=thread`;
+    window.location.href = `${baseUrl}/post/${postId}`;
   } catch (error) {
     console.error("[Thread Extractor] Error creating thread:", error);
     throw error;
@@ -284,11 +315,11 @@ window.addEventListener("message", (event) => {
 
   if (event.data.type === "CONFIG_UPDATE") {
     config = event.data.config;
-    console.log("[Thread Extractor] Received config:", config);
+    // console.log("[Thread Extractor] Received config:", config);
   }
 
   if (event.data.type === "TWEET_DETAIL_CAPTURED") {
-    console.log("[Thread Extractor] Tweet detail captured:", event.data);
+    // console.log("[Thread Extractor] Tweet detail captured:", event.data);
     lastTweetDetail = event.data.data;
 
     // Get post ID from URL
