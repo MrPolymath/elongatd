@@ -70,36 +70,22 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 // Handle API requests from content script
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === "API_REQUEST") {
-    const options = {
-      ...request.options,
-      headers: {
-        ...request.options?.headers,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      credentials: "include", // Important for session cookies
-    };
-
-    fetch(request.url, options)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "API_REQUEST") {
+    fetch(message.url, {
+      ...message.options,
+      credentials: "include", // Always include credentials
+    })
       .then(async (response) => {
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(
-            `API error: ${response.status} ${response.statusText}${
-              errorText ? ` - ${errorText}` : ""
-            }`
-          );
-        }
         const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "API request failed");
+        }
         sendResponse({ success: true, data });
       })
       .catch((error) => {
-        console.error("[Elongatd] API request failed:", error);
         sendResponse({ success: false, error: error.message });
       });
-
-    return true; // Will respond asynchronously
+    return true; // Keep the message channel open for async response
   }
 });

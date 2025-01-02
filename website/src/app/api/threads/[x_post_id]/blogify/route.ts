@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { createAzure } from "@ai-sdk/azure";
 import { generateText, Output } from "ai";
 import { z } from "zod";
+import { getAuth } from "@/lib/auth";
 
 interface Attachment {
   type: string;
@@ -88,6 +89,11 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ x_post_id: string }> }
 ) {
+  const session = await getAuth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { x_post_id } = await context.params;
 
   // Check feature flag

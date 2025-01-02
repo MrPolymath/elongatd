@@ -17,7 +17,18 @@ async function makeAPIRequest(url, options = {}) {
     console.log("[Elongatd] Making API request:", url);
     const response = await new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
-        { type: "API_REQUEST", url, options },
+        {
+          type: "API_REQUEST",
+          url,
+          options: {
+            ...options,
+            credentials: "include", // Include cookies in the request
+            headers: {
+              ...options.headers,
+              "Content-Type": "application/json",
+            },
+          },
+        },
         (response) => {
           if (response.success) {
             resolve(response.data);
@@ -92,7 +103,22 @@ function createNotification(exists = true, isAuthenticated = false) {
     </div>
     <button class="close-button" id="closeButton">×</button>
     `;
+  } else if (!isAuthenticated) {
+    // Blog doesn't exist and user is not authenticated
+    notification.innerHTML = `
+    <div class="notification-content">
+      <h2>🧵 Thread detected</h2>
+      <p>Login to create a better reading experience.</p>
+      <div class="notification-buttons">
+        <button class="thread-extractor-button" id="loginButton">
+          Login to continue
+        </button>
+      </div>
+    </div>
+    <button class="close-button" id="closeButton">×</button>
+    `;
   } else {
+    // Blog doesn't exist but user is authenticated
     notification.innerHTML = `
     <div class="notification-content">
       <h2>🧵 Thread detected</h2>
@@ -129,7 +155,7 @@ async function showNotification(postId) {
   try {
     // Single API call that returns both blog existence and auth status
     const response = await makeAPIRequest(
-      `https://www.elongatd.com/api/threads/${postId}/blogify/exists`,
+      `${window.extensionConfig.authUrl}/api/threads/${postId}/blogify/exists`,
       { credentials: "include" }
     );
 
@@ -420,25 +446,13 @@ document.addEventListener("tweet_detail_captured", async (event) => {
     console.log("[Elongatd] Processing tweet:", tweetId);
     lastTweetDetail = data;
 
-    // First check if blog exists
+    // First check if blog exists and auth status using production URL
     const blogStatus = await makeAPIRequest(
-      `${window.extensionConfig.apiBaseUrl}/${tweetId}/blogify/exists`,
+      `${window.extensionConfig.authUrl}/api/threads/${tweetId}/blogify/exists`,
       { credentials: "include" }
     );
 
     const { exists: blogExists, isAuthenticated } = blogStatus;
-
-    // If blog doesn't exist, store the thread data
-    if (!blogExists) {
-      const threadInfo = extractThreadInfoFromResponse(data);
-      await makeAPIRequest(`${window.extensionConfig.apiBaseUrl}/${tweetId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(threadInfo),
-      });
-    }
 
     // Create and show notification
     const notification = createNotification(blogExists, isAuthenticated);
@@ -467,26 +481,48 @@ document.addEventListener("tweet_detail_captured", async (event) => {
       };
     } else {
       const createButton = notification.querySelector("#create-and-view");
+      const loginButton = notification.querySelector("#loginButton");
       const closeButton = notification.querySelector("#closeButton");
 
-      createButton.onclick = async () => {
-        try {
-          // Disable button and show loading state
-          createButton.disabled = true;
-          createButton.textContent = "Opening...";
+      if (createButton) {
+        createButton.onclick = async () => {
+          try {
+            // Disable button and show loading state
+            createButton.disabled = true;
+            createButton.textContent = "Opening...";
 
-          // Open the thread page
-          window.open(
-            `${window.extensionConfig.baseUrl}/post/${tweetId}`,
-            "_blank"
-          );
-        } catch (error) {
-          console.error("[Elongatd] Error creating thread:", error);
-          // Reset button state on error
-          createButton.disabled = false;
-          createButton.textContent = "Create readable version";
-        }
-      };
+            // Only store thread data when user explicitly clicks create
+            const threadInfo = extractThreadInfoFromResponse(lastTweetDetail);
+            await makeAPIRequest(
+              `${window.extensionConfig.apiBaseUrl}/${tweetId}`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(threadInfo),
+              }
+            );
+
+            // Open the thread page
+            window.open(
+              `${window.extensionConfig.baseUrl}/post/${tweetId}`,
+              "_blank"
+            );
+          } catch (error) {
+            console.error("[Elongatd] Error creating thread:", error);
+            // Reset button state on error
+            createButton.disabled = false;
+            createButton.textContent = "Create readable version";
+          }
+        };
+      }
+
+      if (loginButton) {
+        loginButton.onclick = () => {
+          window.open(`${window.extensionConfig.authUrl}/login`, "_blank");
+        };
+      }
 
       closeButton.onclick = () => {
         notification.remove();
