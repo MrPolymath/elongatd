@@ -108,7 +108,7 @@ export default function Home() {
         <div className="container max-w-4xl mx-auto px-4">
           <div className="flex items-center justify-between h-14">
             <Link href="/" className="text-xl font-bold">
-              Elongatd
+              Elongatd. Better 𝕏 Threads 🧵
             </Link>
             <div className="flex items-center gap-4">
               <Button
@@ -144,9 +144,9 @@ export default function Home() {
 
       <main className="container max-w-4xl mx-auto px-4 py-8">
         <div className="space-y-8">
-          <div className="space-y-4">
-            <h1 className="text-4xl font-bold">Latest Elongated Threads</h1>
-          </div>
+          {/* <div className="space-y-4">
+            <h1 className="text-3xl font-bold">Latest Converted Threads</h1>
+          </div> */}
 
           <div className="grid gap-6">
             {threads.map((thread) => (
