@@ -17,7 +17,17 @@ export const metadata: Metadata = {
   description:
     "Transform your X threads into beautiful, readable blog posts with Elongatd.",
   icons: {
-    icon: "/icon.svg",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicons/favicon.ico", sizes: "32x32" },
+    ],
+    apple: [
+      {
+        url: "/favicons/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
   },
 };
 
