@@ -39,48 +39,37 @@ function createNotification() {
   return notification;
 }
 
-// Show notification with appropriate buttons
-function showNotification(postId, hasBlog = false) {
-  let notification = document.querySelector(".elongatd-notification");
-  if (!notification) {
-    notification = createNotification();
-  }
-
-  // Clear any existing timeout
-  if (notificationTimeout) {
-    clearTimeout(notificationTimeout);
-  }
-
-  const baseUrl = window.config.apiBaseUrl.replace("/api/threads", "");
-
-  // Update notification content
-  const blogButton = notification.querySelector("#view-blog");
-  if (hasBlog) {
-    blogButton.classList.remove("hidden");
-    blogButton.href = `${baseUrl}/post/${postId}`;
-  } else {
-    blogButton.classList.add("hidden");
-  }
-
-  // Update thread button
-  const threadButton = notification.querySelector("#view-thread");
-  threadButton.href = `${baseUrl}/thread/${postId}`;
-
-  // Show notification
-  notification.classList.remove("hidden");
-
-  // Add event listeners
-  const closeButton = notification.querySelector(
-    ".elongatd-notification-close"
+// Show notification
+function showNotification(postId, hasBlog) {
+  // Remove any existing notification
+  const existingNotification = document.querySelector(
+    ".thread-extractor-notification"
   );
-  closeButton.onclick = () => {
-    notification.classList.add("hidden");
-  };
+  if (existingNotification) {
+    existingNotification.remove();
+  }
 
-  // Auto-hide after 5 seconds
-  notificationTimeout = setTimeout(() => {
-    notification.classList.add("hidden");
-  }, 5000);
+  // Create notification element
+  const notification = document.createElement("div");
+  notification.className = "thread-extractor-notification";
+
+  const button = document.createElement("button");
+  button.className = "thread-extractor-button";
+
+  if (hasBlog) {
+    button.textContent = "Read the better version";
+    button.onclick = () =>
+      window.open(`${window.config.webBaseUrl}/post/${postId}`, "_blank");
+  } else {
+    button.textContent = "Read better";
+    button.onclick = () =>
+      window.open(`${window.config.webBaseUrl}/post/${postId}`, "_blank");
+  }
+
+  notification.appendChild(button);
+
+  // Add notification to page
+  document.body.appendChild(notification);
 }
 
 // Check if thread exists and show notification
@@ -95,11 +84,11 @@ async function checkThreadAndNotify(postId) {
       try {
         // Check if blog version exists
         const blogData = await makeAPIRequest(
-          `${window.config.apiBaseUrl}/${postId}/blogify`
+          `${window.config.apiBaseUrl}/${postId}/blogify/exists`
         );
-        showNotification(postId, !blogData.error);
+        showNotification(postId, blogData.exists);
       } catch (error) {
-        // If blogify fails, still show the thread notification
+        // If blogify check fails, show the "Read better" button
         showNotification(postId, false);
       }
     }

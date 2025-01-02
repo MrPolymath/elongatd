@@ -1,22 +1,13 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  MessageCircle,
-  Heart,
-  Repeat2,
-  Share,
-  ExternalLink,
-  Moon,
-  Sun,
-  Chrome,
-} from "lucide-react";
+import { Moon, Sun, Chrome, Share, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { MarkdownWithMedia } from "@/components/markdown-with-media";
 import { ImageCarousel } from "@/components/image-carousel";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Image from "next/image";
 
 // Types for our thread data
@@ -182,12 +173,10 @@ export default function ThreadPost() {
   const postId = params.x_post_id as string;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [blogifyLoading, setBlogifyLoading] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [blogifiedContent, setBlogifiedContent] = useState<BlogContent | null>(
     null
   );
-  const [viewMode, setViewMode] = useState<"thread" | "blog">("thread");
   const [showCopiedFeedback, setShowCopiedFeedback] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
@@ -218,14 +207,7 @@ export default function ThreadPost() {
   };
 
   useEffect(() => {
-    // Get view parameter from URL
-    const searchParams = new URLSearchParams(window.location.search);
-    const viewParam = searchParams.get("view");
-    if (viewParam === "blog" || viewParam === "thread") {
-      setViewMode(viewParam);
-    }
-
-    const fetchThreadData = async () => {
+    const fetchData = async () => {
       try {
         const response = await fetch(`/api/threads/${postId}`);
         if (!response.ok) {
@@ -242,18 +224,15 @@ export default function ThreadPost() {
           const { exists, content } = await blogExistsResponse.json();
           if (exists && content) {
             setBlogContent(content);
-            // Only switch to blog view if it was requested
-            if (viewParam === "blog") {
-              setViewMode("blog");
-            }
           } else {
-            // If blog doesn't exist, always show thread view
-            setViewMode("thread");
-            setBlogifiedContent(null);
-            // Update URL to reflect thread view
-            const url = new URL(window.location.href);
-            url.searchParams.set("view", "thread");
-            window.history.pushState({}, "", url.toString());
+            // If blog doesn't exist, generate it
+            const blogResponse = await fetch(`/api/threads/${postId}/blogify`);
+            if (blogResponse.ok) {
+              const data = await blogResponse.json();
+              setBlogContent(data.content);
+            } else {
+              throw new Error("Failed to generate blog view");
+            }
           }
         }
       } catch (err) {
@@ -263,45 +242,8 @@ export default function ThreadPost() {
       }
     };
 
-    fetchThreadData();
+    fetchData();
   }, [postId]);
-
-  const handleBlogify = async () => {
-    if (blogifiedContent) {
-      // If blog content exists, just switch to blog view
-      setViewMode("blog");
-      const url = new URL(window.location.href);
-      url.searchParams.set("view", "blog");
-      window.history.pushState({}, "", url.toString());
-      return;
-    }
-
-    setBlogifyLoading(true);
-    try {
-      const response = await fetch(`/api/threads/${postId}/blogify`);
-      if (!response.ok) {
-        throw new Error("Failed to generate blog view");
-      }
-      const data = await response.json();
-      setBlogContent(data.content);
-      setViewMode("blog");
-      const url = new URL(window.location.href);
-      url.searchParams.set("view", "blog");
-      window.history.pushState({}, "", url.toString());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setBlogifyLoading(false);
-    }
-  };
-
-  const switchToThreadView = () => {
-    setViewMode("thread");
-    // Update URL without reloading the page
-    const url = new URL(window.location.href);
-    url.searchParams.set("view", "thread");
-    window.history.pushState({}, "", url.toString());
-  };
 
   const handleShare = async () => {
     try {
@@ -316,34 +258,23 @@ export default function ThreadPost() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <div className="text-xl">Loading thread...</div>
+        <div className="text-xl">Loading blog post...</div>
       </div>
     );
   }
 
-  if (error || !threadData) {
+  if (error || !threadData || !blogifiedContent) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-xl text-red-400">
-          {error || "Thread not found"}
+          {error || "Blog post not found"}
         </div>
       </div>
     );
   }
 
-  const { author, tweets, total_metrics } = threadData;
+  const { author } = threadData;
   const originalUrl = `https://x.com/${author.username}/status/${postId}`;
-
-  // Combine all tweet text and attachments in chronological order (oldest first)
-  const content = [...tweets]
-    .sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    )
-    .map((tweet) => ({
-      text: tweet.text,
-      attachments: tweet.attachments,
-    }));
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -375,91 +306,8 @@ export default function ThreadPost() {
               </Button>
             </div>
 
-            {/* Center: View Mode Selector */}
-            <div className="flex items-center gap-1 bg-background/50 rounded-full p-0.5 ring-1 ring-border">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`${
-                  viewMode === "thread"
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                } transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium`}
-                onClick={switchToThreadView}
-                disabled={viewMode === "thread"}
-              >
-                Thread View
-              </Button>
-              {blogifiedContent ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`${
-                    viewMode === "blog"
-                      ? "bg-gradient-to-r from-purple-500/50 to-blue-500/50 text-foreground"
-                      : "text-transparent bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text hover:bg-muted hover:text-transparent hover:from-purple-400 hover:to-blue-400"
-                  } transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium`}
-                  onClick={handleBlogify}
-                  disabled={viewMode === "blog"}
-                >
-                  Blog View
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-transparent bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text hover:bg-muted/50 hover:text-transparent hover:from-purple-400 hover:to-blue-400 transition-all duration-200 rounded-full text-[15px] px-4 py-1.5 h-auto font-medium"
-                  onClick={handleBlogify}
-                  disabled={blogifyLoading}
-                >
-                  {blogifyLoading ? (
-                    <span className="text-muted-foreground">Converting...</span>
-                  ) : (
-                    <span>Convert to Blog</span>
-                  )}
-                </Button>
-              )}
-            </div>
-
-            {/* Right side: Interaction Metrics */}
-            <div className="flex items-center gap-6">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-blue-400 text-[15px] h-auto px-2 py-1.5 rounded-full font-normal group"
-                onClick={() => window.open(originalUrl, "_blank")}
-              >
-                <MessageCircle className="h-6 w-6 mr-0.5 group-hover:bg-blue-400/10 rounded-full transition-colors" />
-                <span>{formatNumber(total_metrics.replies)}</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-green-400 text-[15px] h-auto px-2 py-1.5 rounded-full font-normal group"
-                onClick={() =>
-                  window.open(
-                    `https://x.com/intent/retweet?tweet_id=${postId}`,
-                    "_blank"
-                  )
-                }
-              >
-                <Repeat2 className="h-6 w-6 mr-0.5 group-hover:bg-green-400/10 rounded-full transition-colors" />
-                <span>{formatNumber(total_metrics.retweets)}</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-pink-400 text-[15px] h-auto px-2 py-1.5 rounded-full font-normal group"
-                onClick={() =>
-                  window.open(
-                    `https://x.com/intent/like?tweet_id=${postId}`,
-                    "_blank"
-                  )
-                }
-              >
-                <Heart className="h-6 w-6 mr-0.5 group-hover:bg-pink-400/10 rounded-full transition-colors" />
-                <span>{formatNumber(total_metrics.likes)}</span>
-              </Button>
+            {/* Right side: Share Button */}
+            <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="sm"
@@ -554,7 +402,7 @@ export default function ThreadPost() {
                           rel="noopener noreferrer"
                           className="text-blue-400 hover:text-blue-300"
                         >
-                          {url}
+                          link
                         </a>
                       );
 
@@ -601,80 +449,35 @@ export default function ThreadPost() {
             </div>
           </div>
 
-          {/* Content */}
-          {viewMode === "thread" ? (
-            <div className="space-y-8">
-              {content.map((tweet, index) => (
-                <div key={index} className="prose dark:prose-invert prose-xl">
-                  <div className="relative flow-root">
-                    {tweet.attachments?.some(
-                      (a) => a.type === "image" || a.type === "video"
-                    ) && (
-                      <div className="lg:float-right lg:ml-6 lg:w-[40%] mb-4">
-                        <Attachment attachments={tweet.attachments} />
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <MarkdownWithMedia
-                        content={{
-                          content: tweet.text.replace(
-                            /(?<=\S)\s+https:\/\/t\.co\/\w+$/,
-                            ""
-                          ),
-                          title: "",
-                          summary: "",
-                        }}
-                        media={tweet.attachments.reduce((acc, curr) => {
-                          acc[curr.url] = curr;
-                          return acc;
-                        }, {} as Record<string, Attachment>)}
-                      />
-                    </div>
-                    {tweet.attachments?.some((a) => a.type === "link") && (
-                      <div className="mt-4">
-                        <Attachment
-                          attachments={tweet.attachments.filter(
-                            (a) => a.type === "link"
-                          )}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            blogifiedContent && (
-              <div className="space-y-8">
-                <h1 className="text-4xl font-bold mb-6 text-foreground">
-                  {blogifiedContent.title}
-                </h1>
-                <div>
-                  <div className="space-y-2">
-                    <MarkdownWithMedia
-                      content={{
-                        content: blogifiedContent.content,
-                        title: "",
-                        summary: blogifiedContent.summary,
-                      }}
-                      media={blogifiedContent.media}
-                    />
-                  </div>
-                  {Object.values(blogifiedContent.media).some(
-                    (a) => a.type === "link"
-                  ) && (
-                    <div className="mt-4">
-                      <Attachment
-                        attachments={Object.values(
-                          blogifiedContent.media
-                        ).filter((a) => a.type === "link")}
-                      />
-                    </div>
-                  )}
-                </div>
+          {/* Blog Content */}
+          <div className="space-y-8">
+            <h1 className="text-4xl font-bold mb-6 text-foreground">
+              {blogifiedContent.title}
+            </h1>
+            <div>
+              <div className="space-y-2">
+                <MarkdownWithMedia
+                  content={{
+                    content: blogifiedContent.content,
+                    title: "",
+                    summary: blogifiedContent.summary,
+                  }}
+                  media={blogifiedContent.media}
+                />
               </div>
-            )
-          )}
+              {Object.values(blogifiedContent.media).some(
+                (a) => a.type === "link"
+              ) && (
+                <div className="mt-4">
+                  <Attachment
+                    attachments={Object.values(blogifiedContent.media).filter(
+                      (a) => a.type === "link"
+                    )}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         </article>
 
         {/* Footer */}
