@@ -1,11 +1,13 @@
-const ENV = "development"; // Change this to 'production' for production builds
+// This will be replaced during build with 'production'
+// When developing (loading unpacked), default to development
+const ENV = "__BUILD_ENV__" === "production" ? "production" : "development";
 
 const config = {
   development: {
     apiBaseUrl: "http://localhost:3000/api/threads",
   },
   production: {
-    apiBaseUrl: "https://elongatd.com/api/threads",
+    apiBaseUrl: "https://www.elongatd.com/api/threads",
   },
 };
 

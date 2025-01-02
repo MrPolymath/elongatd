@@ -253,8 +253,14 @@ async function createAndViewThread(postId) {
   try {
     // Extract thread data from the page
     const threadData = extractThreadInfoFromResponse(lastTweetDetail);
+    console.log("[Thread Extractor] Extracted thread data:", threadData);
 
     // Send to our API
+    console.log("[Thread Extractor] Sending to API:", {
+      url: `${config.apiBaseUrl}/${postId}`,
+      data: threadData,
+    });
+
     await makeAPIRequest(`${config.apiBaseUrl}/${postId}`, {
       method: "POST",
       headers: {
@@ -268,6 +274,7 @@ async function createAndViewThread(postId) {
     window.location.href = `${baseUrl}/post/${postId}?view=thread`;
   } catch (error) {
     console.error("[Thread Extractor] Error creating thread:", error);
+    throw error;
   }
 }
 

@@ -69,10 +69,44 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "API_REQUEST") {
-    fetch(request.url, request.options || {})
-      .then((response) => response.json())
-      .then((data) => sendResponse({ success: true, data }))
-      .catch((error) => sendResponse({ success: false, error: error.message }));
+    console.log("[Thread Extractor] Making API request:", {
+      url: request.url,
+      method: request.options?.method || "GET",
+    });
+
+    const options = {
+      ...request.options,
+      headers: {
+        ...request.options?.headers,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      mode: "cors",
+    };
+
+    fetch(request.url, options)
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("[Thread Extractor] API error response:", {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorText,
+          });
+          throw new Error(
+            `API error: ${response.status} ${response.statusText}${
+              errorText ? ` - ${errorText}` : ""
+            }`
+          );
+        }
+        const data = await response.json();
+        console.log("[Thread Extractor] API success response:", data);
+        sendResponse({ success: true, data });
+      })
+      .catch((error) => {
+        console.error("[Thread Extractor] API request failed:", error);
+        sendResponse({ success: false, error: error.message });
+      });
     return true; // Will respond asynchronously
   }
 });
