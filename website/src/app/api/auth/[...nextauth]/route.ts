@@ -1,5 +1,17 @@
 import NextAuth from "next-auth";
 import TwitterProvider from "next-auth/providers/twitter";
+import { JWT } from "next-auth/jwt";
+import { Session } from "next-auth";
+
+// Extend the built-in session type
+interface ExtendedSession extends Session {
+  accessToken?: string;
+}
+
+// Extend the built-in token type
+interface ExtendedToken extends JWT {
+  accessToken?: string;
+}
 
 const handler = NextAuth({
   providers: [
@@ -15,9 +27,15 @@ const handler = NextAuth({
       if (account) {
         token.accessToken = account.access_token;
       }
-      return token;
+      return token as ExtendedToken;
     },
-    async session({ session, token }) {
+    async session({
+      session,
+      token,
+    }: {
+      session: ExtendedSession;
+      token: ExtendedToken;
+    }) {
       // Send properties to the client
       session.accessToken = token.accessToken;
       return session;
