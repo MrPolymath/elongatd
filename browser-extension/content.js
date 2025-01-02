@@ -4,39 +4,123 @@ console.log("[Elongatd] Content script (Isolated) loaded");
 let lastTweetDetail = null;
 let notificationTimeout = null;
 let authStatus = null;
+let authExpires = null;
+let lastUrl = window.location.href;
 
-// Initialize auth status from storage and check current status
+// Helper function to check if current URL is a tweet page
+function isTweetPage() {
+  return window.location.href.match(
+    /^https?:\/\/(www\.)?x\.com\/[^/]+\/status\/\d+/
+  );
+}
+
+// Helper function to remove notification if it exists
+function removeNotification() {
+  const existingNotification = document.querySelector(
+    ".thread-extractor-notification"
+  );
+  if (existingNotification) {
+    existingNotification.remove();
+  }
+}
+
+// Check for URL changes periodically
+setInterval(() => {
+  const currentUrl = window.location.href;
+  if (currentUrl !== lastUrl) {
+    console.log("[Elongatd] URL changed:", currentUrl);
+    lastUrl = currentUrl;
+
+    if (!isTweetPage()) {
+      console.log("[Elongatd] Not a tweet page, removing notification");
+      removeNotification();
+    }
+  }
+}, 500);
+
+// Initialize auth status from storage and check current status if needed
 async function initializeAuthStatus() {
-  // First get from storage
-  const result = await chrome.storage.local.get(["authStatus"]);
-  console.log("[Elongatd] Loaded auth status from storage:", result.authStatus);
-  authStatus = result.authStatus;
-
-  // Then check current status
   try {
-    const response = await makeAPIRequest(
-      `${window.extensionConfig.authUrl}/api/auth/session`,
-      { credentials: "include" }
+    // First get from storage
+    const result = await chrome.storage.local.get([
+      "authStatus",
+      "authExpires",
+    ]);
+    console.log(
+      "[Elongatd] Loaded auth status from storage:",
+      result.authStatus,
+      "expires:",
+      result.authExpires
     );
-    const isAuthenticated = !!response?.user;
-    console.log("[Elongatd] Checked current auth status:", isAuthenticated);
-    if (isAuthenticated !== authStatus) {
-      authStatus = isAuthenticated;
-      chrome.storage.local.set({ authStatus });
+
+    // If we have a valid non-expired auth status, use it
+    if (result.authStatus !== undefined && result.authExpires) {
+      const now = new Date();
+      const expiresDate = new Date(result.authExpires);
+      if (expiresDate > now) {
+        console.log(
+          "[Elongatd] Using cached auth status, valid until:",
+          expiresDate
+        );
+        authStatus = result.authStatus;
+        authExpires = result.authExpires;
+        return;
+      }
+    }
+
+    // Otherwise check current status
+    try {
+      const response = await makeAPIRequest(
+        `${window.extensionConfig.authUrl}/api/auth/session`,
+        { credentials: "include" }
+      );
+      const isAuthenticated = !!response?.user;
+      const expires = response?.expires;
+
+      console.log(
+        "[Elongatd] Checked current auth status:",
+        isAuthenticated,
+        "expires:",
+        expires
+      );
+
+      if (isAuthenticated !== authStatus || expires !== authExpires) {
+        authStatus = isAuthenticated;
+        authExpires = expires;
+        chrome.storage.local.set({ authStatus, authExpires });
+      }
+    } catch (error) {
+      console.error("[Elongatd] Error checking auth status:", error);
     }
   } catch (error) {
-    console.error("[Elongatd] Error checking auth status:", error);
+    // Check if this is an extension context invalidated error
+    if (error.message.includes("Extension context invalidated")) {
+      console.log("[Elongatd] Extension context invalidated, reloading page");
+      window.location.reload();
+      return;
+    }
+    console.error("[Elongatd] Error initializing auth status:", error);
   }
 }
 
 // Initialize auth status when script loads
-initializeAuthStatus();
+initializeAuthStatus().catch((error) => {
+  if (error.message.includes("Extension context invalidated")) {
+    console.log("[Elongatd] Extension context invalidated, reloading page");
+    window.location.reload();
+  }
+});
 
 // Also check auth status when tab becomes visible (user might have logged in in another tab)
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     console.log("[Elongatd] Tab became visible, checking auth status");
-    initializeAuthStatus();
+    initializeAuthStatus().catch((error) => {
+      if (error.message.includes("Extension context invalidated")) {
+        console.log("[Elongatd] Extension context invalidated, reloading page");
+        window.location.reload();
+      }
+    });
   }
 });
 
@@ -71,10 +155,18 @@ async function makeAPIRequest(url, options = {}) {
     console.log("[Elongatd] API response:", response);
 
     // If the response includes auth information, update the stored auth status
-    if (response.isAuthenticated !== undefined) {
-      console.log("[Elongatd] Updating auth status:", response.isAuthenticated);
-      authStatus = response.isAuthenticated;
-      chrome.storage.local.set({ authStatus });
+    if (response.user !== undefined) {
+      const isAuthenticated = !!response.user;
+      const expires = response.expires;
+      console.log(
+        "[Elongatd] Updating auth status:",
+        isAuthenticated,
+        "expires:",
+        expires
+      );
+      authStatus = isAuthenticated;
+      authExpires = expires;
+      chrome.storage.local.set({ authStatus, authExpires });
     }
 
     return response;
@@ -83,14 +175,19 @@ async function makeAPIRequest(url, options = {}) {
     // If we get an auth error, clear the stored auth status
     if (error.message?.includes("unauthorized")) {
       authStatus = false;
-      chrome.storage.local.set({ authStatus: false });
+      authExpires = null;
+      chrome.storage.local.set({ authStatus: false, authExpires: null });
     }
     throw error;
   }
 }
 
 // Create notification element
-function createNotification(exists = true, isAuthenticated = false) {
+function createNotification(
+  exists = true,
+  isAuthenticated = false,
+  tweetCount = 0
+) {
   const notification = document.createElement("div");
   notification.className = "thread-extractor-notification hidden";
 
@@ -98,7 +195,7 @@ function createNotification(exists = true, isAuthenticated = false) {
   if (exists && !isAuthenticated) {
     notification.innerHTML = `
     <div class="notification-content">
-      <h2>🧵 Thread detected</h2>
+      <h2>🧵 Thread with ${tweetCount} tweets detected</h2>
       <p>There's a better way to read this.</p>
       <div class="notification-buttons">
         <button class="thread-extractor-button" id="viewThreadButton">
@@ -118,7 +215,7 @@ function createNotification(exists = true, isAuthenticated = false) {
   } else if (exists) {
     notification.innerHTML = `
     <div class="notification-content">
-      <h2>🧵 Thread detected</h2>
+      <h2>🧵 Thread with ${tweetCount} tweets detected</h2>
       <p>There's a better way to read this.</p>
       <div class="notification-buttons">
         <button class="thread-extractor-button" id="viewThreadButton">
@@ -136,7 +233,7 @@ function createNotification(exists = true, isAuthenticated = false) {
     // Blog doesn't exist and user is not authenticated
     notification.innerHTML = `
     <div class="notification-content">
-      <h2>🧵 Thread detected</h2>
+      <h2>🧵 Thread with ${tweetCount} tweets detected</h2>
       <p>Login to create a better reading experience.</p>
       <div class="notification-buttons">
         <button class="thread-extractor-button" id="loginButton">
@@ -150,7 +247,7 @@ function createNotification(exists = true, isAuthenticated = false) {
     // Blog doesn't exist but user is authenticated
     notification.innerHTML = `
     <div class="notification-content">
-      <h2>🧵 Thread detected</h2>
+      <h2>🧵 Thread with ${tweetCount} tweets detected</h2>
       <p>There's a better way to read this.</p>
       <div class="notification-buttons">
         <button class="thread-extractor-button" id="create-and-view">
@@ -173,13 +270,15 @@ function createNotification(exists = true, isAuthenticated = false) {
 // Show notification
 async function showNotification(postId) {
   console.log("[Elongatd] Showing notification for post:", postId);
-  // Remove any existing notification
-  const existingNotification = document.querySelector(
-    ".thread-extractor-notification"
-  );
-  if (existingNotification) {
-    existingNotification.remove();
+
+  // First check if we're on a tweet page
+  if (!isTweetPage()) {
+    console.log("[Elongatd] Not on a tweet page, ignoring show notification");
+    return;
   }
+
+  // Remove any existing notification
+  removeNotification();
 
   try {
     // First ensure we have the latest auth status
@@ -199,7 +298,11 @@ async function showNotification(postId) {
       authStatus
     );
 
-    const notification = createNotification(blogExists, authStatus);
+    const notification = createNotification(
+      blogExists,
+      authStatus,
+      threadInfo.tweets.length
+    );
 
     // Setup buttons based on state
     if (blogExists) {
@@ -478,6 +581,12 @@ function extractAttachments(tweet) {
 document.addEventListener("tweet_detail_captured", async (event) => {
   console.log("[Elongatd] Tweet detail captured event received");
   try {
+    // First check if we're on a tweet page
+    if (!isTweetPage()) {
+      console.log("[Elongatd] Not on a tweet page, ignoring event");
+      return;
+    }
+
     const data = event.detail.data;
     if (!data) return;
 
@@ -493,6 +602,16 @@ document.addEventListener("tweet_detail_captured", async (event) => {
     console.log("[Elongatd] Processing tweet:", tweetId);
     lastTweetDetail = data;
 
+    // Extract thread info to check length
+    const threadInfo = extractThreadInfoFromResponse(lastTweetDetail);
+    if (threadInfo.tweets.length < 3) {
+      console.log(
+        "[Elongatd] Not enough tweets in thread:",
+        threadInfo.tweets.length
+      );
+      return;
+    }
+
     // First ensure we have the latest auth status
     await initializeAuthStatus();
 
@@ -505,7 +624,11 @@ document.addEventListener("tweet_detail_captured", async (event) => {
     const blogExists = blogStatus.exists;
 
     // Create and show notification
-    const notification = createNotification(blogExists, authStatus);
+    const notification = createNotification(
+      blogExists,
+      authStatus,
+      threadInfo.tweets.length
+    );
 
     // Setup buttons based on state
     if (blogExists) {
