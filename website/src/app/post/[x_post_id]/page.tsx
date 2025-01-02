@@ -295,7 +295,7 @@ export default function ThreadPost() {
               <Button
                 variant="outline"
                 size="sm"
-                className="text-base rounded-full gap-2 border border-border/80 hover:bg-muted/50"
+                className="hidden md:flex text-base rounded-full gap-2 border border-border/80 hover:bg-muted/50"
                 onClick={() =>
                   window.open(
                     "https://chrome.google.com/webstore/detail/your-extension-id",
@@ -304,7 +304,7 @@ export default function ThreadPost() {
                 }
               >
                 <Chrome className="h-4 w-4" />
-                Install Extension
+                <span className="hidden md:inline">Install Extension</span>
               </Button>
               <Button
                 variant="ghost"
@@ -344,7 +344,7 @@ export default function ThreadPost() {
                 className="text-muted-foreground hover:text-blue-400 flex items-center gap-2 relative text-base"
                 onClick={handleShare}
               >
-                Share post
+                <span className="hidden md:inline">Share post</span>
                 <Share className="h-5 w-5" />
                 {showCopiedFeedback && (
                   <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-sm bg-muted text-foreground px-2 py-1 rounded whitespace-nowrap">
