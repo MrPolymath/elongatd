@@ -357,44 +357,53 @@ export default function ThreadPost() {
         </div>
       </header>
 
-      <main className="container max-w-[1600px] mx-auto px-4 md:px-6 py-8">
+      <main className="container max-w-[1600px] mx-auto px-4 md:px-6 py-4 md:py-8">
         <div className="flex flex-col lg:flex-row lg:gap-12">
           {/* Author Info - Left Sidebar */}
-          <aside className="w-full lg:w-80 flex-shrink-0 mb-8 lg:mb-0">
+          <aside className="w-full lg:w-80 flex-shrink-0 mb-4 lg:mb-0">
             <div className="lg:sticky lg:top-24">
-              <div className="flex flex-col gap-8 not-prose bg-muted/30 rounded-xl p-8 border border-border/40">
+              <div className="flex flex-col gap-2 lg:gap-8 not-prose bg-muted/30 rounded-xl p-3 lg:p-8 border border-border/40">
                 {/* Profile Header */}
-                <Link
-                  href={`https://x.com/${author.username}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex items-center gap-4 hover:opacity-90 transition-opacity"
-                >
-                  <Avatar className="h-14 w-14 border-2 border-border/40">
-                    <AvatarImage src={author.profile_image_url} />
-                    <AvatarFallback>
-                      {author.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-semibold text-foreground truncate">
-                        {author.name}
-                      </h2>
-                      {author.verified && <VerifiedBadge />}
+                <div className="flex justify-between items-start">
+                  <Link
+                    href={`https://x.com/${author.username}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex items-center gap-3 hover:opacity-90 transition-opacity"
+                  >
+                    <Avatar className="h-10 lg:h-14 w-10 lg:w-14 border-2 border-border/40">
+                      <AvatarImage src={author.profile_image_url} />
+                      <AvatarFallback>
+                        {author.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base lg:text-xl font-semibold text-foreground truncate">
+                          {author.name}
+                        </h2>
+                        {author.verified && <VerifiedBadge />}
+                      </div>
+                      <p className="text-muted-foreground truncate text-sm">
+                        @{author.username}
+                      </p>
                     </div>
-                    <p className="text-muted-foreground truncate text-sm">
-                      @{author.username}
-                    </p>
+                  </Link>
+                  <div className="lg:hidden text-sm text-muted-foreground">
+                    Joined{" "}
+                    {new Date(author.created_at).toLocaleDateString("en-US", {
+                      month: "short",
+                      year: "numeric",
+                    })}
                   </div>
-                </Link>
+                </div>
 
                 {/* Bio */}
                 {author.description && (
-                  <p className="text-foreground text-sm leading-relaxed">
+                  <p className="text-foreground text-sm leading-relaxed border-t border-border/40 pt-2 lg:pt-0 lg:border-0">
                     {(() => {
                       const urlRegex = /https?:\/\/[^\s]+/g;
                       const matches = [
@@ -445,22 +454,24 @@ export default function ThreadPost() {
                 )}
 
                 {/* Stats */}
-                <div className="flex flex-col gap-2.5 text-sm border-t border-border/40 pt-6">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-foreground">
-                      {formatNumber(author.followers_count)}
-                    </span>
-                    <span className="text-muted-foreground">Followers</span>
-                  </div>
-                  {author.following_count && (
-                    <div className="flex items-center gap-2">
+                <div className="flex flex-col lg:flex-col gap-1.5 lg:gap-2.5 text-sm border-t border-border/40 pt-2 lg:pt-6">
+                  <div className="flex items-center gap-4 lg:gap-2.5">
+                    <div className="flex items-center gap-1.5">
                       <span className="font-semibold text-foreground">
-                        {formatNumber(author.following_count)}
+                        {formatNumber(author.followers_count)}
                       </span>
-                      <span className="text-muted-foreground">Following</span>
+                      <span className="text-muted-foreground">Followers</span>
                     </div>
-                  )}
-                  <div className="flex items-center gap-2">
+                    {author.following_count && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-foreground">
+                          {formatNumber(author.following_count)}
+                        </span>
+                        <span className="text-muted-foreground">Following</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="hidden lg:flex items-center gap-1.5">
                     <span className="text-muted-foreground">Joined</span>
                     <span className="text-foreground">
                       {new Date(author.created_at).toLocaleDateString("en-US", {
