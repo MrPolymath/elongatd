@@ -39,6 +39,7 @@
 .notification-buttons {
   display: flex;
   gap: 8px;
+  flex-direction: column;
 }
 
 .thread-extractor-button {
@@ -57,6 +58,16 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
+}
+
+.thread-extractor-button.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.thread-extractor-button.secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
 }
 
 .thread-extractor-button svg {
