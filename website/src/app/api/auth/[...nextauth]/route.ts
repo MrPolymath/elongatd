@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import TwitterProvider from "next-auth/providers/twitter";
 import { JWT } from "next-auth/jwt";
 import { Session } from "next-auth";
+import { Account } from "next-auth";
 
 // Extend the built-in session type
 interface ExtendedSession extends Session {
@@ -13,7 +14,7 @@ interface ExtendedToken extends JWT {
   accessToken?: string;
 }
 
-const handler = NextAuth({
+export const authOptions = {
   providers: [
     TwitterProvider({
       clientId: process.env.X_CLIENT_ID!,
@@ -22,7 +23,7 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account }: { token: JWT; account: Account | null }) {
       // Persist the OAuth access_token to the token right after signin
       if (account) {
         token.accessToken = account.access_token;
@@ -44,6 +45,8 @@ const handler = NextAuth({
   pages: {
     signIn: "/login",
   },
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
