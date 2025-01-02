@@ -280,8 +280,8 @@ export default function ThreadPost() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Sticky Header with Metrics */}
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border">
-        <div className="container max-w-4xl mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
+        <div className="container max-w-[1600px] mx-auto px-4 md:px-6">
+          <div className="flex items-center justify-between h-16">
             {/* Left side: Explore Link and Theme Toggle */}
             <div className="flex items-center gap-4">
               <Button
@@ -291,6 +291,20 @@ export default function ThreadPost() {
                 className="text-lg font-semibold hover:bg-muted/50"
               >
                 <Link href="/">Explore</Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-base rounded-full gap-2 border border-border/80 hover:bg-muted/50"
+                onClick={() =>
+                  window.open(
+                    "https://chrome.google.com/webstore/detail/your-extension-id",
+                    "_blank"
+                  )
+                }
+              >
+                <Chrome className="h-4 w-4" />
+                Install Extension
               </Button>
               <Button
                 variant="ghost"
@@ -311,10 +325,27 @@ export default function ThreadPost() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-muted-foreground hover:text-blue-400 h-auto p-2 rounded-full group relative"
+                asChild
+                className="text-muted-foreground hover:text-foreground flex items-center gap-2 text-base"
+              >
+                <Link
+                  href={originalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5"
+                >
+                  View original
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-blue-400 flex items-center gap-2 relative text-base"
                 onClick={handleShare}
               >
-                <Share className="h-6 w-6 group-hover:bg-blue-400/10 rounded-full transition-colors" />
+                Share post
+                <Share className="h-5 w-5" />
                 {showCopiedFeedback && (
                   <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-sm bg-muted text-foreground px-2 py-1 rounded whitespace-nowrap">
                     URL copied!
@@ -326,196 +357,178 @@ export default function ThreadPost() {
         </div>
       </header>
 
-      <main className="container max-w-4xl mx-auto px-4 py-8">
-        <article className="prose dark:prose-invert prose-xl max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-em:text-foreground">
-          {/* Author Info */}
-          <div className="flex flex-col gap-6 mb-12 not-prose bg-muted/30 rounded-xl p-6 border border-border/40">
-            <div className="flex items-start justify-between">
-              <Link
-                href={`https://x.com/${author.username}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-start gap-5 hover:opacity-90 transition-opacity"
-              >
-                <Avatar className="h-14 w-14">
-                  <AvatarImage src={author.profile_image_url} />
-                  <AvatarFallback>
-                    {author.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-semibold text-foreground truncate">
-                      {author.name}
-                    </h2>
-                    {author.verified && <VerifiedBadge />}
+      <main className="container max-w-[1600px] mx-auto px-4 md:px-6 py-8">
+        <div className="flex flex-col lg:flex-row lg:gap-12">
+          {/* Author Info - Left Sidebar */}
+          <aside className="w-full lg:w-80 flex-shrink-0 mb-8 lg:mb-0">
+            <div className="lg:sticky lg:top-24">
+              <div className="flex flex-col gap-8 not-prose bg-muted/30 rounded-xl p-8 border border-border/40">
+                {/* Profile Header */}
+                <Link
+                  href={`https://x.com/${author.username}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center gap-4 hover:opacity-90 transition-opacity"
+                >
+                  <Avatar className="h-14 w-14 border-2 border-border/40">
+                    <AvatarImage src={author.profile_image_url} />
+                    <AvatarFallback>
+                      {author.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-semibold text-foreground truncate">
+                        {author.name}
+                      </h2>
+                      {author.verified && <VerifiedBadge />}
+                    </div>
+                    <p className="text-muted-foreground truncate text-sm">
+                      @{author.username}
+                    </p>
                   </div>
-                  <p className="text-muted-foreground truncate">
-                    @{author.username}
-                  </p>
-                </div>
-              </Link>
-              <Link
-                href={originalUrl}
-                className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 group/link"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                View original
-                <ExternalLink className="h-3 w-3 group-hover/link:translate-x-0.5 transition-transform" />
-              </Link>
-            </div>
+                </Link>
 
-            <div className="space-y-4">
-              {author.description && (
-                <p className="text-foreground text-base leading-normal">
-                  {(() => {
-                    const urlRegex = /https?:\/\/[^\s]+/g;
-                    const matches = [...author.description.matchAll(urlRegex)];
+                {/* Bio */}
+                {author.description && (
+                  <p className="text-foreground text-sm leading-relaxed">
+                    {(() => {
+                      const urlRegex = /https?:\/\/[^\s]+/g;
+                      const matches = [
+                        ...author.description.matchAll(urlRegex),
+                      ];
 
-                    if (matches.length === 0) {
-                      return author.description;
-                    }
-
-                    const fragments = [];
-                    let lastIndex = 0;
-
-                    matches.forEach((match) => {
-                      const url = match[0];
-
-                      // Add text before the URL
-                      if (match.index! > lastIndex) {
-                        fragments.push(
-                          author.description.slice(lastIndex, match.index)
-                        );
+                      if (matches.length === 0) {
+                        return author.description;
                       }
 
-                      // Add the URL as a link
-                      fragments.push(
-                        <a
-                          key={`bio-link-${match.index}`}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-400 hover:text-blue-300"
-                        >
-                          link
-                        </a>
-                      );
+                      const fragments = [];
+                      let lastIndex = 0;
 
-                      lastIndex = match.index! + url.length;
-                    });
+                      matches.forEach((match) => {
+                        const url = match[0];
 
-                    // Add any remaining text
-                    if (lastIndex < author.description.length) {
-                      fragments.push(author.description.slice(lastIndex));
-                    }
+                        // Add text before the URL
+                        if (match.index! > lastIndex) {
+                          fragments.push(
+                            author.description.slice(lastIndex, match.index)
+                          );
+                        }
 
-                    return fragments;
-                  })()}
-                </p>
-              )}
+                        // Add the URL as a link
+                        fragments.push(
+                          <a
+                            key={`bio-link-${match.index}`}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300"
+                          >
+                            here
+                          </a>
+                        );
 
-              <div className="flex flex-wrap gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-foreground">
-                    {formatNumber(author.followers_count)}
-                  </span>
-                  <span className="text-muted-foreground">Followers</span>
-                </div>
-                {author.following_count && (
-                  <>
+                        lastIndex = match.index! + url.length;
+                      });
+
+                      // Add any remaining text
+                      if (lastIndex < author.description.length) {
+                        fragments.push(author.description.slice(lastIndex));
+                      }
+
+                      return fragments;
+                    })()}
+                  </p>
+                )}
+
+                {/* Stats */}
+                <div className="flex flex-col gap-2.5 text-sm border-t border-border/40 pt-6">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-foreground">
+                      {formatNumber(author.followers_count)}
+                    </span>
+                    <span className="text-muted-foreground">Followers</span>
+                  </div>
+                  {author.following_count && (
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-foreground">
                         {formatNumber(author.following_count)}
                       </span>
                       <span className="text-muted-foreground">Following</span>
                     </div>
-                  </>
-                )}
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Joined</span>
-                  <span className="text-foreground">
-                    {new Date(author.created_at).toLocaleDateString("en-US", {
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </span>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Joined</span>
+                    <span className="text-foreground">
+                      {new Date(author.created_at).toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </aside>
 
-          {/* Blog Content */}
-          <div className="space-y-8">
-            <h1 className="text-4xl font-bold mb-6 text-foreground">
-              {blogifiedContent.title}
-            </h1>
-            <div>
-              <div className="space-y-2">
-                <MarkdownWithMedia
-                  content={{
-                    content: blogifiedContent.content,
-                    title: "",
-                    summary: blogifiedContent.summary,
-                  }}
-                  media={blogifiedContent.media}
-                />
-              </div>
-              {Object.values(blogifiedContent.media).some(
-                (a) => a.type === "link"
-              ) && (
-                <div className="mt-4">
-                  <Attachment
-                    attachments={Object.values(blogifiedContent.media).filter(
-                      (a) => a.type === "link"
-                    )}
-                  />
+          {/* Blog Content - Right Side */}
+          <article className="flex-1 max-w-4xl">
+            <div className="prose dark:prose-invert prose-xl prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-em:text-foreground">
+              <div className="space-y-8">
+                <h1 className="text-4xl font-bold mb-6 text-foreground">
+                  {blogifiedContent.title}
+                </h1>
+                <div>
+                  <div className="space-y-2">
+                    <MarkdownWithMedia
+                      content={{
+                        content: blogifiedContent.content,
+                        title: "",
+                        summary: blogifiedContent.summary,
+                      }}
+                      media={blogifiedContent.media}
+                    />
+                  </div>
+                  {Object.values(blogifiedContent.media).some(
+                    (a) => a.type === "link"
+                  ) && (
+                    <div className="mt-4">
+                      <Attachment
+                        attachments={Object.values(
+                          blogifiedContent.media
+                        ).filter((a) => a.type === "link")}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        </article>
+              </div>
 
-        {/* Footer */}
-        <div className="relative mt-24">
-          <footer className="pt-6 border-t border-border">
-            <div className="flex items-center justify-between text-base text-muted-foreground">
-              <time>
-                Originally posted on{" "}
-                {new Date(threadData.created_at).toLocaleDateString()}
-              </time>
-              <Link
-                href={originalUrl}
-                className="text-blue-400 hover:text-blue-300"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                View on X
-              </Link>
+              {/* Footer */}
+              <div className="relative mt-24">
+                <footer className="pt-6 border-t border-border">
+                  <div className="flex items-center justify-between text-base text-muted-foreground">
+                    <time>
+                      Originally posted on{" "}
+                      {new Date(threadData.created_at).toLocaleDateString()}
+                    </time>
+                    <Link
+                      href={originalUrl}
+                      className="text-blue-400 hover:text-blue-300"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View on X
+                    </Link>
+                  </div>
+                </footer>
+              </div>
             </div>
-          </footer>
+          </article>
         </div>
       </main>
-
-      {/* Extension Promo */}
-      <Button
-        variant="default"
-        size="sm"
-        className="fixed bottom-6 right-6 rounded-full gap-2 shadow-lg scale-125"
-        onClick={() =>
-          window.open(
-            "https://chrome.google.com/webstore/detail/your-extension-id",
-            "_blank"
-          )
-        }
-      >
-        <Chrome className="h-4 w-4" />
-        Install Extension
-      </Button>
     </div>
   );
 }
