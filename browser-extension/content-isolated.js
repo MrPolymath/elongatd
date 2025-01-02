@@ -88,6 +88,17 @@ function extractThreadInfoFromResponse(response) {
     const mainTweetLegacy = mainTweetContent.legacy;
     const user = mainTweetContent.core.user_results.result.legacy;
 
+    // Count the number of tweets in the thread
+    let tweetCount = 1; // Start with 1 for the main tweet
+    if (threadEntry && threadEntry.content.items) {
+      tweetCount += threadEntry.content.items.length;
+    }
+
+    // If there are less than 3 tweets, don't show the notification
+    if (tweetCount < 3) {
+      throw new Error("Not a thread (less than 3 tweets)");
+    }
+
     // Set author info from main tweet
     authorInfo = {
       id: mainTweetContent.core.user_results.result.rest_id,
@@ -202,6 +213,19 @@ async function checkThreadAndNotify(postId) {
 
   console.log("[Thread Extractor] Checking thread:", postId);
   try {
+    // First check if we have enough tweets to consider this a thread
+    try {
+      const threadData = extractThreadInfoFromResponse(lastTweetDetail);
+    } catch (error) {
+      if (error.message.includes("Not a thread")) {
+        console.log(
+          "[Thread Extractor] Not showing notification - too few tweets"
+        );
+        return;
+      }
+      throw error;
+    }
+
     // Check if thread exists in our system
     const existsUrl = `${config.apiBaseUrl}/${postId}/exists`;
     console.log("[Thread Extractor] Checking exists URL:", existsUrl);
