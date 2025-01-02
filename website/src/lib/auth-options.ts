@@ -19,7 +19,6 @@ export const authOptions = {
       clientId: process.env.X_CLIENT_ID!,
       clientSecret: process.env.X_CLIENT_SECRET!,
       version: "2.0",
-      callbackUrl: `${process.env.NEXTAUTH_URL}/api/auth/callback/twitter`,
     }),
   ],
   callbacks: {
