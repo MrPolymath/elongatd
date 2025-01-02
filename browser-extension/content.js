@@ -2,7 +2,7 @@
 let lastTweetDetail = null;
 let notificationTimeout = null;
 
-console.log("[Thread Extractor] Content script loaded");
+// console.log("[Thread Extractor] Content script loaded");
 
 // Helper function to make API requests through background script
 async function makeAPIRequest(url) {
@@ -99,7 +99,7 @@ async function checkThreadAndNotify(postId) {
 
 // Listen for the tweet detail event
 window.addEventListener("tweet_detail_captured", function (event) {
-  console.log("[Thread Extractor] Tweet detail captured:", event.detail.data);
+  // console.log("[Thread Extractor] Tweet detail captured:", event.detail.data);
   lastTweetDetail = event.detail.data;
 
   // Get post ID from URL
@@ -111,7 +111,7 @@ window.addEventListener("tweet_detail_captured", function (event) {
 
 // Function to extract thread information from API response
 function extractThreadInfoFromResponse(response) {
-  console.log(
+  // console.log(
     "[Thread Extractor] Extracting thread info from response:",
     response
   );
@@ -163,7 +163,7 @@ function extractThreadInfoFromResponse(response) {
     const mainTweetText =
       mainTweetContent.note_tweet?.note_tweet_results?.result?.text ||
       mainTweetLegacy.full_text;
-    console.log("[Thread Extractor] Main tweet text:", mainTweetText);
+    // console.log("[Thread Extractor] Main tweet text:", mainTweetText);
     tweets.push({
       id: mainTweetContent.rest_id,
       text: mainTweetText,
@@ -189,7 +189,7 @@ function extractThreadInfoFromResponse(response) {
           const replyText =
             tweetContent.note_tweet?.note_tweet_results?.result?.text ||
             tweetContent.legacy.full_text;
-          console.log("[Thread Extractor] Reply tweet text:", replyText);
+          // console.log("[Thread Extractor] Reply tweet text:", replyText);
           tweets.push({
             id: tweetContent.rest_id,
             text: replyText,
@@ -227,7 +227,7 @@ function extractThreadInfoFromResponse(response) {
       },
     };
 
-    console.log(
+    // console.log(
       "[Thread Extractor] Successfully extracted thread info:",
       result
     );
@@ -263,7 +263,7 @@ function extractTweetInfo(tweetContent) {
     attachments: extractAttachments(tweetContent),
   };
 
-  console.log("[Thread Extractor] Extracted tweet:", {
+  // console.log("[Thread Extractor] Extracted tweet:", {
     id: tweet.id,
     text: tweet.text,
   });
@@ -271,7 +271,7 @@ function extractTweetInfo(tweetContent) {
 }
 
 function extractAttachments(tweet) {
-  console.log("[Thread Extractor] Extracting attachments from tweet:", {
+  // console.log("[Thread Extractor] Extracting attachments from tweet:", {
     hasExtendedEntities: !!tweet.legacy?.extended_entities,
     hasCard: !!tweet.card,
     tweetData: tweet,
@@ -281,26 +281,26 @@ function extractAttachments(tweet) {
 
   // Extract media (images and videos)
   if (tweet.legacy?.extended_entities?.media) {
-    console.log(
+    // console.log(
       "[Thread Extractor] Found media attachments:",
       tweet.legacy.extended_entities.media
     );
     tweet.legacy.extended_entities.media.forEach((media) => {
       if (media.type === "photo") {
-        console.log("[Thread Extractor] Processing photo:", media);
+        // console.log("[Thread Extractor] Processing photo:", media);
         attachments.push({
           type: "image",
           url: media.media_url_https,
           original_url: media.url,
         });
       } else if (media.type === "video") {
-        console.log("[Thread Extractor] Processing video:", media);
+        // console.log("[Thread Extractor] Processing video:", media);
         // Filter to only MP4s and sort by bitrate
         const mp4Variants = media.video_info.variants.filter(
           (v) => v.content_type === "video/mp4"
         );
 
-        console.log(
+        // console.log(
           "[Thread Extractor] MP4 variants before sorting:",
           mp4Variants
         );
@@ -312,11 +312,11 @@ function extractAttachments(tweet) {
           return bitrateB - bitrateA;
         });
 
-        console.log("[Thread Extractor] Sorted variants:", sortedVariants);
+        // console.log("[Thread Extractor] Sorted variants:", sortedVariants);
 
         if (sortedVariants.length > 0) {
           const highestQuality = sortedVariants[0];
-          console.log(
+          // console.log(
             "[Thread Extractor] Selected highest quality variant:",
             highestQuality
           );
@@ -342,7 +342,7 @@ function extractAttachments(tweet) {
 
   // Extract card/link preview
   if (tweet.card?.legacy?.binding_values) {
-    console.log(
+    // console.log(
       "[Thread Extractor] Found card:",
       tweet.card.legacy.binding_values
     );
@@ -355,7 +355,7 @@ function extractAttachments(tweet) {
     );
 
     if (values.title || values.description) {
-      console.log("[Thread Extractor] Adding link attachment:", values);
+      // console.log("[Thread Extractor] Adding link attachment:", values);
       attachments.push({
         type: "link",
         title: values.title,
@@ -365,14 +365,14 @@ function extractAttachments(tweet) {
     }
   }
 
-  console.log("[Thread Extractor] Final attachments:", attachments);
+  // console.log("[Thread Extractor] Final attachments:", attachments);
   return attachments;
 }
 
 // Function to send data to our API
 async function sendToApi(threadInfo, postId) {
   try {
-    console.log("[Thread Extractor] Sending data to API:", {
+    // console.log("[Thread Extractor] Sending data to API:", {
       url: `${window.config.apiBaseUrl}/${postId}`,
       data: threadInfo,
     });
@@ -386,7 +386,7 @@ async function sendToApi(threadInfo, postId) {
     });
 
     const result = await response.json();
-    console.log("[Thread Extractor] API response:", result);
+    // console.log("[Thread Extractor] API response:", result);
     return result;
   } catch (error) {
     console.error("[Thread Extractor] Error sending data to API:", error);
@@ -396,7 +396,7 @@ async function sendToApi(threadInfo, postId) {
 
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log("[Thread Extractor] Received message:", request);
+  // console.log("[Thread Extractor] Received message:", request);
 
   if (request.action === "extractThread") {
     // Get the post ID from the URL
@@ -421,7 +421,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     try {
-      console.log(
+      // console.log(
         "[Thread Extractor] Processing captured tweet data:",
         lastTweetDetail
       );
@@ -430,7 +430,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       // Send to our API
       sendToApi(threadInfo, postId)
         .then((result) => {
-          console.log("[Thread Extractor] Successfully processed thread");
+          // console.log("[Thread Extractor] Successfully processed thread");
           sendResponse({
             success: true,
             message: "Thread data processed successfully",

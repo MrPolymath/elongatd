@@ -252,7 +252,7 @@ async function checkThreadAndNotify(postId) {
           window.location.origin
         );
       } catch (error) {
-        console.log("[Thread Extractor] Blog check failed:", error);
+        // console.log("[Thread Extractor] Blog check failed:", error);
         // If blogify fails, still show the thread notification
         window.postMessage(
           {
@@ -265,9 +265,7 @@ async function checkThreadAndNotify(postId) {
         );
       }
     } else {
-      console.log(
-        "[Thread Extractor] Thread doesn't exist, showing new thread notification"
-      );
+      // console.log("[Thread Extractor] Thread doesn't exist, showing new thread notification");
       // Show notification for new thread
       window.postMessage(
         {
@@ -289,13 +287,10 @@ async function createAndViewThread(postId) {
   try {
     // Extract thread data from the page
     const threadData = extractThreadInfoFromResponse(lastTweetDetail);
-    console.log("[Thread Extractor] Extracted thread data:", threadData);
+    // console.log("[Thread Extractor] Extracted thread data:", threadData);
 
     // Send to our API
-    console.log("[Thread Extractor] Sending to API:", {
-      url: `${config.apiBaseUrl}/${postId}`,
-      data: threadData,
-    });
+    // console.log("[Thread Extractor] Sending to API:", { url: `${config.apiBaseUrl}/${postId}`, data: threadData });
 
     await makeAPIRequest(`${config.apiBaseUrl}/${postId}`, {
       method: "POST",
@@ -320,11 +315,11 @@ window.addEventListener("message", (event) => {
 
   if (event.data.type === "CONFIG_UPDATE") {
     config = event.data.config;
-    console.log("[Thread Extractor] Received config:", config);
+    // console.log("[Thread Extractor] Received config:", config);
   }
 
   if (event.data.type === "TWEET_DETAIL_CAPTURED") {
-    console.log("[Thread Extractor] Tweet detail captured:", event.data);
+    // console.log("[Thread Extractor] Tweet detail captured:", event.data);
     lastTweetDetail = event.data.data;
 
     // Get post ID from URL

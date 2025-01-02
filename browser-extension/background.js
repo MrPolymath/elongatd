@@ -1,4 +1,11 @@
-console.log("[Thread Extractor] Background script loaded");
+// Service worker initialization
+self.addEventListener("install", (event) => {
+  console.log("[Thread Extractor] Service worker installed");
+});
+
+self.addEventListener("activate", (event) => {
+  console.log("[Thread Extractor] Service worker activated");
+});
 
 // Function that will be injected into the page
 function injectInterceptors() {
@@ -53,7 +60,6 @@ function injectInterceptors() {
 // Listen for tab updates to inject our script
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete" && tab.url?.includes("x.com")) {
-    console.log("[Thread Extractor] Injecting script into tab:", tabId);
     chrome.scripting
       .executeScript({
         target: { tabId },
@@ -69,11 +75,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "API_REQUEST") {
-    console.log("[Thread Extractor] Making API request:", {
-      url: request.url,
-      method: request.options?.method || "GET",
-    });
-
     const options = {
       ...request.options,
       headers: {
@@ -88,11 +89,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .then(async (response) => {
         if (!response.ok) {
           const errorText = await response.text();
-          console.error("[Thread Extractor] API error response:", {
-            status: response.status,
-            statusText: response.statusText,
-            body: errorText,
-          });
           throw new Error(
             `API error: ${response.status} ${response.statusText}${
               errorText ? ` - ${errorText}` : ""
@@ -100,7 +96,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           );
         }
         const data = await response.json();
-        console.log("[Thread Extractor] API success response:", data);
         sendResponse({ success: true, data });
       })
       .catch((error) => {

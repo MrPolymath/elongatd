@@ -2,8 +2,6 @@
 let lastTweetDetail = null;
 let notificationTimeout = null;
 
-console.log("[Thread Extractor] Main world script loaded");
-
 // Send config to isolated world
 window.postMessage(
   {
@@ -17,7 +15,6 @@ window.postMessage(
 
 // Create notification element
 function createNotification(exists = true) {
-  console.log("[Thread Extractor] Creating notification:", { exists });
   const notification = document.createElement("div");
   notification.className = "thread-extractor-notification hidden";
   notification.innerHTML = exists
@@ -55,26 +52,15 @@ function createNotification(exists = true) {
   `;
 
   document.body.appendChild(notification);
-  console.log(
-    "[Thread Extractor] Notification element created and added to DOM"
-  );
   return notification;
 }
 
 // Show notification with appropriate buttons
 function showNotification(postId, exists = false, hasBlog = false) {
-  console.log("[Thread Extractor] Showing notification:", {
-    postId,
-    exists,
-    hasBlog,
-  });
-  // Always create a new notification
   const notification = createNotification(exists);
   const baseUrl = window.config.apiBaseUrl.replace("/api/threads", "");
 
   if (exists) {
-    console.log("[Thread Extractor] Setting up existing thread buttons");
-    // Add click handlers for thread and blog buttons
     const threadButton = notification.querySelector("#viewThreadButton");
     const closeButton = notification.querySelector("#closeButton");
 
@@ -86,8 +72,6 @@ function showNotification(postId, exists = false, hasBlog = false) {
       notification.remove();
     };
   } else {
-    console.log("[Thread Extractor] Setting up new thread button");
-    // Add click handler for create-and-view button
     const createButton = notification.querySelector("#create-and-view");
     const closeButton = notification.querySelector("#closeButton");
 
@@ -106,7 +90,6 @@ function showNotification(postId, exists = false, hasBlog = false) {
         // Reset button state on error
         createButton.disabled = false;
         createButton.textContent = "Create readable version";
-        console.error("[Thread Extractor] Error creating thread:", error);
       }
     };
 
@@ -117,7 +100,6 @@ function showNotification(postId, exists = false, hasBlog = false) {
 
   // Show notification
   notification.classList.remove("hidden");
-  console.log("[Thread Extractor] Notification shown");
 }
 
 // Save original fetch and XHR
@@ -167,10 +149,6 @@ window.addEventListener("message", (event) => {
   if (event.source !== window) return;
 
   if (event.data.type === "SHOW_NOTIFICATION") {
-    console.log(
-      "[Thread Extractor] Received show notification message:",
-      event.data
-    );
     const { postId, exists, hasBlog } = event.data;
     showNotification(postId, exists, hasBlog);
   }
