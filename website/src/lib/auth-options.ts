@@ -44,4 +44,7 @@ export const authOptions = {
   pages: {
     signIn: "/login",
   },
+  // Add these to ensure proper OAuth callback handling
+  secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
 };
