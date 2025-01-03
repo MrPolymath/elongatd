@@ -5,7 +5,7 @@ import { createAzure } from "@ai-sdk/azure";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth-options";
 
 interface Attachment {
   type: string;
@@ -117,10 +117,10 @@ export async function GET(
 
       // Extract user info from session
       userId = session.user.id;
-      userName = session.user.name;
-      userImage = session.user.image;
+      userName = session.user.name || "Anonymous";
+      userImage = session.user.image || "";
 
-      if (!userId || !userName || !userImage) {
+      if (!userId) {
         return NextResponse.json(
           { error: "Invalid user session" },
           { status: 400 }
