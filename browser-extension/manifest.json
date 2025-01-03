@@ -1,15 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Elongatd",
+  "short_name": "Elongatd",
   "version": "1.0.0",
-  "update_url": "https://clients2.google.com/service/update2/crx",
-  "description": "Convert X threads into blog posts",
+  "description": "Transform X threads into beautiful, readable blog posts. Get a better reading experience for long threads with proper formatting and media support.",
+  "author": "danielcarmona55@gmail.com",
+  "homepage_url": "https://www.elongatd.com",
+  "minimum_chrome_version": "88",
   "permissions": ["scripting", "activeTab", "storage", "tabs"],
   "host_permissions": [
     "https://x.com/*",
     "https://twitter.com/*",
-    "https://www.elongatd.com/*",
-    "http://localhost:3000/*"
+    "https://www.elongatd.com/*"
   ],
   "content_scripts": [
     {
