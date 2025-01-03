@@ -248,7 +248,7 @@ async function showNotification(postId) {
 
     const notification = createNotification(
       blogExists,
-      isDevelopment || authStatus,
+      authStatus,
       threadInfo.tweets.length
     );
 
@@ -372,14 +372,21 @@ async function showNotification(postId) {
 // Function to extract thread information from API response
 function extractThreadInfoFromResponse(response) {
   try {
+    console.log(
+      "[Elongatd] Raw API response:",
+      JSON.stringify(response, null, 2)
+    );
+
     const data =
-      response.data.threaded_conversation_with_injections_v2.instructions[0];
+      response.data?.threaded_conversation_with_injections_v2
+        ?.instructions?.[0];
     if (!data || !data.entries) {
+      console.error(
+        "[Elongatd] Invalid response structure - missing data or entries:",
+        data
+      );
       throw new Error("Invalid response structure");
     }
-
-    const tweets = [];
-    let authorInfo = null;
 
     // Find main tweet and thread entries
     const mainTweetEntry = data.entries.find((e) =>
@@ -390,17 +397,43 @@ function extractThreadInfoFromResponse(response) {
     );
 
     if (!mainTweetEntry) {
+      console.error("[Elongatd] Main tweet entry not found in:", data.entries);
       throw new Error("Main tweet not found in response");
     }
 
+    console.log("[Elongatd] Main tweet entry:", mainTweetEntry);
+
     // Process main tweet
     const mainTweetContent =
-      mainTweetEntry.content.itemContent.tweet_results.result;
+      mainTweetEntry.content?.itemContent?.tweet_results?.result;
+    if (!mainTweetContent) {
+      console.error("[Elongatd] Main tweet content missing:", mainTweetEntry);
+      throw new Error("Main tweet content missing");
+    }
+
     const mainTweetLegacy = mainTweetContent.legacy;
-    const user = mainTweetContent.core.user_results.result.legacy;
+    if (!mainTweetLegacy) {
+      console.error(
+        "[Elongatd] Main tweet legacy data missing:",
+        mainTweetContent
+      );
+      throw new Error("Main tweet legacy data missing");
+    }
+
+    const userResults = mainTweetContent.core?.user_results?.result;
+    if (!userResults) {
+      console.error("[Elongatd] User results missing:", mainTweetContent);
+      throw new Error("User results missing");
+    }
+
+    const user = userResults.legacy;
+    if (!user) {
+      console.error("[Elongatd] User legacy data missing:", userResults);
+      throw new Error("User legacy data missing");
+    }
 
     // Set author info from main tweet
-    authorInfo = {
+    const authorInfo = {
       id: mainTweetContent.core.user_results.result.rest_id,
       name: user.name,
       username: user.screen_name,
@@ -419,6 +452,7 @@ function extractThreadInfoFromResponse(response) {
     const mainTweetText =
       mainTweetContent.note_tweet?.note_tweet_results?.result?.text ||
       mainTweetLegacy.full_text;
+    const tweets = [];
     tweets.push({
       id: mainTweetContent.rest_id,
       text: mainTweetText,
@@ -598,22 +632,28 @@ document.addEventListener("tweet_detail_captured", async (event) => {
       return;
     }
 
-    // First ensure we have the latest auth status
+    // First check if blog exists (public endpoint)
+    let blogExists = false;
+    try {
+      const response = await makeAPIRequest(
+        `/api/threads/${tweetId}/blogify/exists`,
+        {
+          credentials: "omit", // Don't send credentials for public endpoint
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+      blogExists = response.exists;
+    } catch (error) {
+      console.error("[Elongatd] Error checking blog existence:", error);
+    }
+
+    // Then ensure we have the latest auth status
     await initializeAuthStatus();
 
-    // Then check if blog exists
-    const blogStatus = await makeAPIRequest(
-      `/api/threads/${tweetId}/blogify/exists`,
-      { credentials: "include" }
-    );
-
-    const blogExists = blogStatus.exists;
-
     // Create and show notification
-    const isDevelopment = !chrome.runtime.getManifest().update_url;
     const notification = createNotification(
       blogExists,
-      isDevelopment || authStatus, // Force true in development
+      authStatus,
       threadInfo.tweets.length
     );
 
