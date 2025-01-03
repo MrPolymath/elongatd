@@ -5,16 +5,10 @@ import { eq } from "drizzle-orm";
 
 // Helper function to handle CORS
 function corsResponse(response: NextResponse) {
-  response.headers.set(
-    "Access-Control-Allow-Origin",
-    "chrome-extension://jdfplepcnhehmmnfnmmejbdilmeljcon"
-  );
+  // Allow requests from any origin since this is a public endpoint
+  response.headers.set("Access-Control-Allow-Origin", "*");
   response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  response.headers.set(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization"
-  );
-  response.headers.set("Access-Control-Allow-Credentials", "true");
+  response.headers.set("Access-Control-Allow-Headers", "Content-Type");
   return response;
 }
 

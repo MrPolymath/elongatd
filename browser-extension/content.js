@@ -74,31 +74,15 @@ async function initializeAuthStatus() {
       }
     }
 
-    // Otherwise check current status
-    try {
-      const response = await makeAPIRequest(`/api/auth/session`, {
-        credentials: "include",
-      });
-      const isAuthenticated = !!response?.user;
-      const expires = response?.expires;
-
-      console.log(
-        "[Elongatd] Checked current auth status:",
-        isAuthenticated,
-        "expires:",
-        expires
-      );
-
-      if (isAuthenticated !== authStatus || expires !== authExpires) {
-        authStatus = isAuthenticated;
-        authExpires = expires;
-        await chrome.storage.local.set({ authStatus, authExpires });
-      }
-    } catch (error) {
-      console.error("[Elongatd] Error checking auth status:", error);
-    }
+    // If we have no auth status or it's expired, just set to false
+    // We'll only check the current status when the user tries to use the extension
+    authStatus = false;
+    authExpires = null;
+    await chrome.storage.local.set({ authStatus: false, authExpires: null });
   } catch (error) {
     console.error("[Elongatd] Error initializing auth status:", error);
+    authStatus = false;
+    authExpires = null;
   }
 }
 
@@ -236,16 +220,24 @@ async function showNotification(postId) {
   removeNotification();
 
   try {
-    // First ensure we have the latest auth status
+    // First ensure we have the latest auth status from storage
     await initializeAuthStatus();
 
-    // Then check blog existence
-    const response = await makeAPIRequest(
-      `/api/threads/${postId}/blogify/exists`,
-      { credentials: "include" }
-    );
+    // Always check if blog exists, as it's a public endpoint
+    let blogExists = false;
+    try {
+      const response = await makeAPIRequest(
+        `/api/threads/${postId}/blogify/exists`,
+        {
+          credentials: "omit", // Don't send credentials for public endpoint
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+      blogExists = response.exists;
+    } catch (error) {
+      console.error("[Elongatd] Error checking blog existence:", error);
+    }
 
-    const blogExists = response.exists;
     const isDevelopment = !chrome.runtime.getManifest().update_url;
     console.log(
       "[Elongatd] Blog exists:",
@@ -256,7 +248,7 @@ async function showNotification(postId) {
 
     const notification = createNotification(
       blogExists,
-      isDevelopment || authStatus, // Force true in development
+      isDevelopment || authStatus,
       threadInfo.tweets.length
     );
 
