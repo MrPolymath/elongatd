@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
           image: token.picture,
         },
         expires: token.exp
-          ? new Date(token.exp * 1000).toISOString()
+          ? new Date(Number(token.exp) * 1000).toISOString()
           : undefined,
         accessToken: request.cookies.get("next-auth.session-token")?.value,
       })

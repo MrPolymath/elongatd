@@ -3,8 +3,6 @@ import { db, schema } from "@/db";
 import { createAzure } from "@ai-sdk/azure";
 import { generateText, Output } from "ai";
 import { z } from "zod";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth-options";
 import { getToken } from "next-auth/jwt";
 
 interface Attachment {
@@ -113,21 +111,37 @@ export async function OPTIONS() {
 // Helper function to validate API token
 async function validateToken(request: NextRequest) {
   try {
-    // Use NextAuth's getToken to validate the token
+    // First try to get token from Authorization header
+    const authHeader = request.headers.get("Authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.substring(7); // Remove "Bearer " prefix
+
+      // Parse the token (format: userId:timestamp:1:0:at:1)
+      const [userId] = token.split(":");
+      if (userId) {
+        return {
+          id: userId,
+          name: "User",
+          image: "",
+        };
+      }
+    }
+
+    // If no valid token in header, try NextAuth session
     const token = await getToken({
       req: request,
       secret: process.env.NEXTAUTH_SECRET,
     });
 
-    if (!token?.sub) {
-      return null;
+    if (token?.sub) {
+      return {
+        id: token.sub,
+        name: (token.name as string) || "User",
+        image: (token.picture as string) || "",
+      };
     }
 
-    return {
-      id: token.sub,
-      name: (token.name as string) || "User",
-      image: (token.picture as string) || "",
-    };
+    return null;
   } catch (error) {
     console.error("Error validating token:", error);
     return null;

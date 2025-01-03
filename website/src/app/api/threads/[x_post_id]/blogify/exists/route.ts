@@ -19,7 +19,7 @@ function corsResponse(response: NextResponse) {
 }
 
 // Handle OPTIONS request for CORS preflight
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS() {
   return corsResponse(new NextResponse(null, { status: 200 }));
 }
 
