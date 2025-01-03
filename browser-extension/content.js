@@ -38,72 +38,6 @@ setInterval(() => {
   }
 }, 500);
 
-// Helper function to make API requests
-async function makeAPIRequest(endpoint, options = {}) {
-  try {
-    // Determine if we're in development mode (unpacked extension)
-    const isDevelopment = !chrome.runtime.getManifest().update_url;
-
-    const url = `${window.extensionConfig.authUrl}${endpoint}`;
-
-    console.log("[Elongatd] Making API request:", endpoint);
-
-    const response = await new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(
-        {
-          type: "API_REQUEST",
-          url,
-          options: {
-            ...options,
-            credentials: "include",
-            headers: {
-              ...options.headers,
-              "Content-Type": "application/json",
-            },
-          },
-        },
-        (response) => {
-          if (response.success) {
-            resolve(response.data);
-          } else {
-            reject(new Error(response.error));
-          }
-        }
-      );
-    });
-
-    console.log("[Elongatd] API response:", response);
-
-    // Update auth status based on response
-    if (response.user !== undefined) {
-      const isAuthenticated = isDevelopment || !!response.user; // Always true in development
-      const expires =
-        response.expires ||
-        new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      console.log(
-        "[Elongatd] Updating auth status:",
-        isAuthenticated,
-        "expires:",
-        expires
-      );
-      authStatus = isAuthenticated;
-      authExpires = expires;
-      await chrome.storage.local.set({ authStatus, authExpires });
-    }
-
-    return response;
-  } catch (error) {
-    console.error("[Elongatd] API request error:", error);
-    // If we get an auth error, clear the stored auth status (but keep as true in development)
-    if (error.message?.includes("unauthorized") && !isDevelopment) {
-      authStatus = false;
-      authExpires = null;
-      await chrome.storage.local.set({ authStatus: false, authExpires: null });
-    }
-    throw error;
-  }
-}
-
 // Development helper to clear storage
 async function clearStorageForDev() {
   if (!chrome.runtime.getManifest().update_url) {
@@ -113,11 +47,6 @@ async function clearStorageForDev() {
     authExpires = null;
     console.log("[Elongatd] Storage cleared");
   }
-}
-
-// In development mode, clear storage on load
-if (!chrome.runtime.getManifest().update_url) {
-  clearStorageForDev();
 }
 
 // Initialize auth status from storage and check current status if needed
@@ -163,18 +92,12 @@ async function initializeAuthStatus() {
       if (isAuthenticated !== authStatus || expires !== authExpires) {
         authStatus = isAuthenticated;
         authExpires = expires;
-        chrome.storage.local.set({ authStatus, authExpires });
+        await chrome.storage.local.set({ authStatus, authExpires });
       }
     } catch (error) {
       console.error("[Elongatd] Error checking auth status:", error);
     }
   } catch (error) {
-    // Check if this is an extension context invalidated error
-    if (error.message.includes("Extension context invalidated")) {
-      console.log("[Elongatd] Extension context invalidated, reloading page");
-      window.location.reload();
-      return;
-    }
     console.error("[Elongatd] Error initializing auth status:", error);
   }
 }
@@ -266,10 +189,10 @@ function createNotification(
     notification.innerHTML = `
     <div class="notification-content">
       <h2>🧵 Thread with ${tweetCount} tweets detected</h2>
-      <p>Login to create a better reading experience.</p>
+      <p>Simply login with X to get a better reading experience.</p>
       <div class="notification-buttons">
         <button class="thread-extractor-button" id="loginButton">
-          Login to continue
+          Read better version
         </button>
       </div>
     </div>
@@ -736,3 +659,68 @@ document.addEventListener("tweet_detail_captured", async (event) => {
     console.error("[Elongatd] Error processing tweet detail:", error);
   }
 });
+
+// Update the makeAPIRequest function to use direct storage access
+async function makeAPIRequest(endpoint, options = {}) {
+  try {
+    const isDevelopment = !chrome.runtime.getManifest().update_url;
+    const url = `${window.extensionConfig.authUrl}${endpoint}`;
+    console.log("[Elongatd] Making API request to:", url);
+
+    const response = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        {
+          type: "API_REQUEST",
+          url,
+          options: {
+            ...options,
+            credentials: "include",
+            headers: {
+              ...options.headers,
+              "Content-Type": "application/json",
+            },
+          },
+        },
+        (response) => {
+          if (response.success) {
+            resolve(response.data);
+          } else {
+            reject(new Error(response.error));
+          }
+        }
+      );
+    });
+
+    console.log("[Elongatd] API response:", response);
+
+    if (response.user !== undefined) {
+      // DEVELOPMENT: Uncomment the next line to skip login requirement
+      // const isAuthenticated = isDevelopment || !!response.user;
+      // PRODUCTION: Uncomment the next line to require login
+      const isAuthenticated = !!response.user;
+
+      const expires =
+        response.expires ||
+        new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      console.log(
+        "[Elongatd] Updating auth status:",
+        isAuthenticated,
+        "expires:",
+        expires
+      );
+      authStatus = isAuthenticated;
+      authExpires = expires;
+      await chrome.storage.local.set({ authStatus, authExpires });
+    }
+
+    return response;
+  } catch (error) {
+    console.error("[Elongatd] API request error:", error);
+    if (error.message?.includes("unauthorized")) {
+      authStatus = false;
+      authExpires = null;
+      await chrome.storage.local.set({ authStatus: false, authExpires: null });
+    }
+    throw error;
+  }
+}

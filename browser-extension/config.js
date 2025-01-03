@@ -1,8 +1,8 @@
 const config = {
   development: {
-    apiBaseUrl: "http://localhost:3000/api",
-    baseUrl: "http://localhost:3000",
-    authUrl: "http://localhost:3000",
+    apiBaseUrl: "https://www.elongatd.com/api",
+    baseUrl: "https://www.elongatd.com",
+    authUrl: "https://www.elongatd.com",
   },
   production: {
     apiBaseUrl: "https://www.elongatd.com/api",
