@@ -91,8 +91,8 @@ If you want to work on the web application:
    # View database with Drizzle Studio
    npm run db:studio
 
-   # Run production database migrations
-   npm run db:push:prod
+   # Run database migrations
+   npm run db:push:local
    ```
 
 ## Environment Variables 🔑
