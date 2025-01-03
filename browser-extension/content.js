@@ -182,6 +182,20 @@ async function makeAPIRequest(url, options = {}) {
   }
 }
 
+// Helper function to estimate tokens in a string (rough estimation)
+function estimateTokens(str) {
+  // GPT tokenizer generally splits on spaces and punctuation
+  // A rough estimate is 4 characters per token
+  return Math.ceil(str.length / 4);
+}
+
+// Helper function to calculate cost in USD
+function calculateCost(inputTokens, outputTokens) {
+  const inputCost = (inputTokens / 1000) * 0.01; // $0.01 per 1K tokens
+  const outputCost = (outputTokens / 1000) * 0.03; // $0.03 per 1K tokens
+  return inputCost + outputCost;
+}
+
 // Create notification element
 function createNotification(
   exists = true,
