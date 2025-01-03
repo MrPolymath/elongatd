@@ -292,25 +292,32 @@ async function showNotification(postId) {
           try {
             // Disable button and show loading state
             createButton.disabled = true;
-            createButton.textContent = "Opening...";
+            createButton.textContent = "Creating...";
 
-            // Only store thread data when user explicitly clicks create
+            // Extract thread info and send directly to blogify endpoint
             const threadInfo = extractThreadInfoFromResponse(lastTweetDetail);
-            await makeAPIRequest(`/api/threads/${postId}`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(threadInfo),
-            });
-
-            // Open the thread page
-            window.open(
-              `${window.extensionConfig.baseUrl}/post/${postId}`,
-              "_blank"
+            const response = await makeAPIRequest(
+              `/api/threads/${postId}/blogify`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(threadInfo),
+              }
             );
+
+            // If successful, open the blog post
+            if (response.content) {
+              window.open(
+                `${window.extensionConfig.baseUrl}/post/${postId}`,
+                "_blank"
+              );
+            } else {
+              throw new Error("Failed to create blog post");
+            }
           } catch (error) {
-            console.error("[Elongatd] Error creating thread:", error);
+            console.error("[Elongatd] Error creating blog post:", error);
             // Reset button state on error
             createButton.disabled = false;
             createButton.textContent = "Create readable version";
@@ -616,25 +623,32 @@ document.addEventListener("tweet_detail_captured", async (event) => {
           try {
             // Disable button and show loading state
             createButton.disabled = true;
-            createButton.textContent = "Opening...";
+            createButton.textContent = "Creating...";
 
-            // Only store thread data when user explicitly clicks create
+            // Extract thread info and send directly to blogify endpoint
             const threadInfo = extractThreadInfoFromResponse(lastTweetDetail);
-            await makeAPIRequest(`/api/threads/${tweetId}`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(threadInfo),
-            });
-
-            // Open the thread page
-            window.open(
-              `${window.extensionConfig.baseUrl}/post/${tweetId}`,
-              "_blank"
+            const response = await makeAPIRequest(
+              `/api/threads/${tweetId}/blogify`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(threadInfo),
+              }
             );
+
+            // If successful, open the blog post
+            if (response.content) {
+              window.open(
+                `${window.extensionConfig.baseUrl}/post/${tweetId}`,
+                "_blank"
+              );
+            } else {
+              throw new Error("Failed to create blog post");
+            }
           } catch (error) {
-            console.error("[Elongatd] Error creating thread:", error);
+            console.error("[Elongatd] Error creating blog post:", error);
             // Reset button state on error
             createButton.disabled = false;
             createButton.textContent = "Create readable version";

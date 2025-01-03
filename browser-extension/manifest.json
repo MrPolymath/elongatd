@@ -3,7 +3,7 @@
   "name": "Elongatd",
   "short_name": "Elongatd",
   "version": "1.0.0",
-  "description": "Transform X threads into beautiful, readable blog posts. Get a better reading experience for long threads with proper formatting and media support.",
+  "description": "Transform X threads into beautiful, readable blog posts. Get a better reading experience for long threads.",
   "author": "danielcarmona55@gmail.com",
   "homepage_url": "https://www.elongatd.com",
   "minimum_chrome_version": "88",

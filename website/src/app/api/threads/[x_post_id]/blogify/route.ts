@@ -86,12 +86,13 @@ const blogSchema = z.object({
   summary: z.string().describe("A one-sentence summary of the post"),
 });
 
-export async function GET(
+export async function POST(
   request: NextRequest,
   context: { params: Promise<{ x_post_id: string }> }
 ) {
   try {
     const { x_post_id } = await context.params;
+    const threadData = await request.json();
 
     // Get user info - use mock data in development
     let userId: string;
@@ -136,44 +137,55 @@ export async function GET(
       );
     }
 
-    // Check if we already have a blogified version
-    const existingBlogified = await db
-      .select()
-      .from(schema.blogified_threads)
-      .where(eq(schema.blogified_threads.thread_id, x_post_id))
-      .limit(1);
-
-    if (existingBlogified.length > 0) {
-      return NextResponse.json({
-        content: existingBlogified[0].content,
-        created_at: existingBlogified[0].created_at,
-      });
-    }
-
-    // Get the original thread content
-    const thread = await db.query.threads.findFirst({
-      where: eq(schema.threads.id, x_post_id),
-      with: {
-        tweets: true,
-      },
+    // First store the thread data
+    await db.insert(schema.threads).values({
+      id: x_post_id,
+      author_id: threadData.author.id,
+      author_name: threadData.author.username,
+      author_display_name: threadData.author.name,
+      author_verified: threadData.author.verified,
+      author_profile_image_url: threadData.author.profile_image_url,
+      author_description: threadData.author.description,
+      author_followers_count: threadData.author.followers_count,
+      author_following_count: threadData.author.following_count,
+      author_location: threadData.author.location,
+      author_created_at: threadData.author.created_at,
+      author_url: threadData.author.url,
+      created_at: threadData.created_at,
+      metrics_replies: threadData.total_metrics.replies,
+      metrics_retweets: threadData.total_metrics.retweets,
+      metrics_likes: threadData.total_metrics.likes,
+      metrics_views: threadData.total_metrics.views,
+      metrics_bookmarks: threadData.total_metrics.bookmarks,
     });
 
-    if (!thread || !thread.tweets) {
-      return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-    }
+    // Then store each tweet
+    await Promise.all(
+      threadData.tweets.map((tweet: any, index: number) =>
+        db.insert(schema.tweets).values({
+          id: tweet.id,
+          thread_id: x_post_id,
+          text: tweet.text,
+          created_at: tweet.created_at,
+          sequence: index,
+          metrics_replies: tweet.metrics.replies,
+          metrics_retweets: tweet.metrics.retweets,
+          metrics_likes: tweet.metrics.likes,
+          metrics_views: tweet.metrics.views,
+          metrics_bookmarks: tweet.metrics.bookmarks,
+          attachments: tweet.attachments,
+        })
+      )
+    );
 
-    // Sort tweets by sequence
-    const sortedTweets = [...thread.tweets].sort(
-      (a, b) => a.sequence - b.sequence
-    ) as Tweet[];
-
-    // Keep track of media attachments
+    // Now generate the blog version
+    const sortedTweets = threadData.tweets;
     const mediaMap = new Map<number, Attachment>();
     let mediaCounter = 1;
 
     // Prepare the thread content for the AI, including attachment descriptions
     const threadContent = sortedTweets
-      .map((tweet) => {
+      .map((tweet: Tweet) => {
         let content = tweet.text;
 
         // Add attachment descriptions
@@ -237,11 +249,9 @@ export async function GET(
       console.log("AI Response:", experimental_output);
       console.log("Token usage:", usage);
 
-      // Define cost rates (in cents per 1M tokens)
-      const inputCostPer1mTokensCents = 15; // $0.15 per 1M tokens = 15 cents
-      const outputCostPer1mTokensCents = 60; // $0.60 per 1M tokens = 60 cents
-
-      // Calculate costs (in millicents for precision)
+      // Calculate costs as before...
+      const inputCostPer1mTokensCents = 15;
+      const outputCostPer1mTokensCents = 60;
       const inputCostMillicents = Math.round(
         (usage.promptTokens / 1_000_000) * inputCostPer1mTokensCents * 1000
       );
@@ -256,20 +266,7 @@ export async function GET(
         media: Object.fromEntries(mediaMap),
       };
 
-      console.log("Complete blog post:", completeBlogPost);
-      console.log("Cost calculation:", {
-        inputTokens: usage.promptTokens,
-        outputTokens: usage.completionTokens,
-        totalTokens: usage.totalTokens,
-        inputCostPer1mTokensCents,
-        outputCostPer1mTokensCents,
-        inputCostMillicents,
-        outputCostMillicents,
-        totalCostMillicents,
-        costInDollars: totalCostMillicents / 100000, // Convert to dollars for logging
-      });
-
-      // Store the blogified version with token and cost tracking
+      // Store the blogified version
       const blogContent = JSON.stringify(completeBlogPost);
       await db.insert(schema.blogified_threads).values({
         thread_id: x_post_id,
@@ -288,25 +285,21 @@ export async function GET(
         total_cost_millicents: totalCostMillicents,
       });
 
-      const response = {
+      return NextResponse.json({
         content: blogContent,
         created_at: new Date().toISOString(),
-      };
-
-      console.log("API Response:", response);
-
-      return NextResponse.json(response);
+      });
     } catch (error) {
-      console.error("Error blogifying thread:", error);
+      console.error("Error generating blog post:", error);
       return NextResponse.json(
-        { error: "Failed to blogify thread" },
+        { error: "Failed to generate blog post" },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error("Error blogifying thread:", error);
+    console.error("Error processing request:", error);
     return NextResponse.json(
-      { error: "Failed to blogify thread" },
+      { error: "Failed to process request" },
       { status: 500 }
     );
   }
