@@ -114,14 +114,6 @@ You'll need an Azure OpenAI account with GPT-4 Turbo access to run the blog conv
 
 ### Browser Extension
 
-The environment is controlled in `config.js`:
-
-```javascript
-// development: uses localhost:3000
-// production: uses elongatd.com
-const ENV = "development";
-```
-
 ## How It Works 🔄
 
 1. When you visit a thread on X, the extension automatically detects it

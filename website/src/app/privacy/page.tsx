@@ -71,7 +71,7 @@ export default function PrivacyPolicy() {
             <h2 className="text-2xl font-semibold mb-4">Your Rights</h2>
             <p>You have the right to:</p>
             <ul className="list-disc pl-6 mt-2">
-              <li>Access the blog posts you've created</li>
+              <li>Access the blog posts you&apos;ve created</li>
               <li>Delete your account and associated data</li>
               <li>Opt out of using our service at any time</li>
             </ul>
