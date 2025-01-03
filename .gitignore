@@ -42,3 +42,8 @@ next-env.d.ts
 
 # browser extension build
 browser-extension/dist/
+
+# browser extension packaging files
+*.pem
+*.crx
+*.zip
