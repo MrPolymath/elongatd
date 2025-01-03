@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/db";
-import { eq } from "drizzle-orm";
 import { createAzure } from "@ai-sdk/azure";
 import { generateText, Output } from "ai";
 import { z } from "zod";
@@ -32,6 +31,13 @@ interface Tweet {
   metrics_views: number;
   metrics_bookmarks: number;
   attachments: Attachment[];
+  metrics: {
+    replies: number;
+    retweets: number;
+    likes: number;
+    views: number;
+    bookmarks: number;
+  };
 }
 
 // Initialize Azure OpenAI client
@@ -140,33 +146,31 @@ export async function POST(
     // First store the thread data
     await db.insert(schema.threads).values({
       id: x_post_id,
+      created_at: new Date(threadData.created_at),
       author_id: threadData.author.id,
-      author_name: threadData.author.username,
-      author_display_name: threadData.author.name,
-      author_verified: threadData.author.verified,
+      author_name: threadData.author.name,
+      author_username: threadData.author.username,
       author_profile_image_url: threadData.author.profile_image_url,
+      author_verified: threadData.author.verified,
       author_description: threadData.author.description,
       author_followers_count: threadData.author.followers_count,
       author_following_count: threadData.author.following_count,
-      author_location: threadData.author.location,
-      author_created_at: threadData.author.created_at,
-      author_url: threadData.author.url,
-      created_at: threadData.created_at,
-      metrics_replies: threadData.total_metrics.replies,
-      metrics_retweets: threadData.total_metrics.retweets,
-      metrics_likes: threadData.total_metrics.likes,
-      metrics_views: threadData.total_metrics.views,
-      metrics_bookmarks: threadData.total_metrics.bookmarks,
+      author_location: threadData.author.location || null,
+      author_created_at: new Date(threadData.author.created_at),
+      author_url: threadData.author.url || null,
+      total_replies: threadData.total_metrics.replies,
+      total_retweets: threadData.total_metrics.retweets,
+      total_likes: threadData.total_metrics.likes,
     });
 
     // Then store each tweet
     await Promise.all(
-      threadData.tweets.map((tweet: any, index: number) =>
+      threadData.tweets.map((tweet: Tweet, index: number) =>
         db.insert(schema.tweets).values({
           id: tweet.id,
           thread_id: x_post_id,
           text: tweet.text,
-          created_at: tweet.created_at,
+          created_at: new Date(tweet.created_at),
           sequence: index,
           metrics_replies: tweet.metrics.replies,
           metrics_retweets: tweet.metrics.retweets,
