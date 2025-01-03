@@ -74,11 +74,32 @@ export const blogified_threads = pgTable("blogified_threads", {
   thread_id: text("thread_id")
     .primaryKey()
     .references(() => threads.id, { onDelete: "cascade" }),
+  // User tracking
+  user_id: text("user_id").notNull(), // Twitter/X user ID
+  user_name: text("user_name").notNull(), // Twitter/X username
+  user_image: text("user_image").notNull(), // Profile image URL
   content: text("content").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
   version: integer("version").notNull().default(1),
   is_paid: boolean("is_paid").notNull().default(false),
+  // Token usage tracking
+  input_tokens: integer("input_tokens").notNull().default(0),
+  output_tokens: integer("output_tokens").notNull().default(0),
+  total_tokens: integer("total_tokens").notNull().default(0),
+  // Cost rates per 1M tokens (in cents)
+  input_cost_per_1m_tokens_cents: integer("input_cost_per_1m_tokens_cents")
+    .notNull()
+    .default(15), // $0.15 per 1M tokens = 15 cents
+  output_cost_per_1m_tokens_cents: integer("output_cost_per_1m_tokens_cents")
+    .notNull()
+    .default(60), // $0.60 per 1M tokens = 60 cents
+  // Total costs (in millicents for precision)
+  input_cost_millicents: integer("input_cost_millicents").notNull().default(0),
+  output_cost_millicents: integer("output_cost_millicents")
+    .notNull()
+    .default(0),
+  total_cost_millicents: integer("total_cost_millicents").notNull().default(0),
 });
 
 export const blogifiedThreadsRelations = relations(

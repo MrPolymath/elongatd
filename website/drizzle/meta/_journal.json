@@ -43,6 +43,13 @@
       "when": 1735757582209,
       "tag": "0005_vengeful_supernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1735897748717,
+      "tag": "0006_perfect_thunderball",
+      "breakpoints": true
     }
   ]
 }

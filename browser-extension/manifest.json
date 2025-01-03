@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Elongatd",
   "version": "1.0.0",
+  "update_url": "https://clients2.google.com/service/update2/crx",
   "description": "Convert X threads into blog posts",
   "permissions": ["scripting", "activeTab", "storage", "tabs"],
   "host_permissions": [

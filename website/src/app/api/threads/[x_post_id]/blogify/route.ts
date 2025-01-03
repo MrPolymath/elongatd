@@ -4,7 +4,8 @@ import { eq } from "drizzle-orm";
 import { createAzure } from "@ai-sdk/azure";
 import { generateText, Output } from "ai";
 import { z } from "zod";
-import { getAuth } from "@/lib/auth";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth-options";
 
 interface Attachment {
   type: string;
@@ -89,22 +90,52 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ x_post_id: string }> }
 ) {
-  const session = await getAuth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { x_post_id } = await context.params;
-
-  // Check feature flag
-  if (process.env.ENABLE_BLOGIFY !== "true") {
-    return NextResponse.json(
-      { error: "This feature is not currently available" },
-      { status: 403 }
-    );
-  }
-
   try {
+    const { x_post_id } = await context.params;
+
+    // Get user info - use mock data in development
+    let userId: string;
+    let userName: string;
+    let userImage: string;
+
+    if (process.env.NODE_ENV === "development") {
+      // Use mock user data for local development
+      userId = "dev_user";
+      userName = "Development User";
+      userImage = "https://avatars.githubusercontent.com/u/1234567";
+    } else {
+      // Get the user session in production
+      const session = await getServerSession(authOptions);
+
+      // Check if user is authenticated
+      if (!session?.user) {
+        return NextResponse.json(
+          { error: "Authentication required" },
+          { status: 401 }
+        );
+      }
+
+      // Extract user info from session
+      userId = session.user.id;
+      userName = session.user.name || "Anonymous";
+      userImage = session.user.image || "";
+
+      if (!userId) {
+        return NextResponse.json(
+          { error: "Invalid user session" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Check feature flag
+    if (process.env.ENABLE_BLOGIFY !== "true") {
+      return NextResponse.json(
+        { error: "This feature is not currently available" },
+        { status: 403 }
+      );
+    }
+
     // Check if we already have a blogified version
     const existingBlogified = await db
       .select()
@@ -192,7 +223,7 @@ export async function GET(
 
     try {
       console.log("Generating blog post with AI...");
-      const { experimental_output } = await generateText({
+      const { experimental_output, usage } = await generateText({
         model: azure(process.env.AZURE_OPENAI_DEPLOYMENT_NAME!),
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
@@ -204,6 +235,20 @@ export async function GET(
       });
 
       console.log("AI Response:", experimental_output);
+      console.log("Token usage:", usage);
+
+      // Define cost rates (in cents per 1M tokens)
+      const inputCostPer1mTokensCents = 15; // $0.15 per 1M tokens = 15 cents
+      const outputCostPer1mTokensCents = 60; // $0.60 per 1M tokens = 60 cents
+
+      // Calculate costs (in millicents for precision)
+      const inputCostMillicents = Math.round(
+        (usage.promptTokens / 1_000_000) * inputCostPer1mTokensCents * 1000
+      );
+      const outputCostMillicents = Math.round(
+        (usage.completionTokens / 1_000_000) * outputCostPer1mTokensCents * 1000
+      );
+      const totalCostMillicents = inputCostMillicents + outputCostMillicents;
 
       // Create the complete blog post with media
       const completeBlogPost = {
@@ -212,13 +257,35 @@ export async function GET(
       };
 
       console.log("Complete blog post:", completeBlogPost);
+      console.log("Cost calculation:", {
+        inputTokens: usage.promptTokens,
+        outputTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+        inputCostPer1mTokensCents,
+        outputCostPer1mTokensCents,
+        inputCostMillicents,
+        outputCostMillicents,
+        totalCostMillicents,
+        costInDollars: totalCostMillicents / 100000, // Convert to dollars for logging
+      });
 
-      // Store the blogified version
+      // Store the blogified version with token and cost tracking
       const blogContent = JSON.stringify(completeBlogPost);
       await db.insert(schema.blogified_threads).values({
         thread_id: x_post_id,
+        user_id: userId,
+        user_name: userName,
+        user_image: userImage,
         content: blogContent,
         is_paid: false,
+        input_tokens: usage.promptTokens,
+        output_tokens: usage.completionTokens,
+        total_tokens: usage.totalTokens,
+        input_cost_per_1m_tokens_cents: inputCostPer1mTokensCents,
+        output_cost_per_1m_tokens_cents: outputCostPer1mTokensCents,
+        input_cost_millicents: inputCostMillicents,
+        output_cost_millicents: outputCostMillicents,
+        total_cost_millicents: totalCostMillicents,
       });
 
       const response = {

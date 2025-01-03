@@ -1,12 +1,12 @@
 const config = {
   development: {
+    apiBaseUrl: "https://www.elongatd.com/api",
     baseUrl: "https://www.elongatd.com",
-    apiBaseUrl: "https://www.elongatd.com/api/threads",
     authUrl: "https://www.elongatd.com",
   },
   production: {
+    apiBaseUrl: "https://www.elongatd.com/api",
     baseUrl: "https://www.elongatd.com",
-    apiBaseUrl: "https://www.elongatd.com/api/threads",
     authUrl: "https://www.elongatd.com",
   },
 };

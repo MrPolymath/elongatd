@@ -38,6 +38,17 @@ setInterval(() => {
   }
 }, 500);
 
+// Development helper to clear storage
+async function clearStorageForDev() {
+  if (!chrome.runtime.getManifest().update_url) {
+    console.log("[Elongatd] Development mode - clearing storage");
+    await chrome.storage.local.clear();
+    authStatus = null;
+    authExpires = null;
+    console.log("[Elongatd] Storage cleared");
+  }
+}
+
 // Initialize auth status from storage and check current status if needed
 async function initializeAuthStatus() {
   try {
@@ -46,12 +57,7 @@ async function initializeAuthStatus() {
       "authStatus",
       "authExpires",
     ]);
-    console.log(
-      "[Elongatd] Loaded auth status from storage:",
-      result.authStatus,
-      "expires:",
-      result.authExpires
-    );
+    console.log("[Elongatd] Loaded auth status from storage:", result);
 
     // If we have a valid non-expired auth status, use it
     if (result.authStatus !== undefined && result.authExpires) {
@@ -70,10 +76,9 @@ async function initializeAuthStatus() {
 
     // Otherwise check current status
     try {
-      const response = await makeAPIRequest(
-        `${window.extensionConfig.authUrl}/api/auth/session`,
-        { credentials: "include" }
-      );
+      const response = await makeAPIRequest(`/api/auth/session`, {
+        credentials: "include",
+      });
       const isAuthenticated = !!response?.user;
       const expires = response?.expires;
 
@@ -87,18 +92,12 @@ async function initializeAuthStatus() {
       if (isAuthenticated !== authStatus || expires !== authExpires) {
         authStatus = isAuthenticated;
         authExpires = expires;
-        chrome.storage.local.set({ authStatus, authExpires });
+        await chrome.storage.local.set({ authStatus, authExpires });
       }
     } catch (error) {
       console.error("[Elongatd] Error checking auth status:", error);
     }
   } catch (error) {
-    // Check if this is an extension context invalidated error
-    if (error.message.includes("Extension context invalidated")) {
-      console.log("[Elongatd] Extension context invalidated, reloading page");
-      window.location.reload();
-      return;
-    }
     console.error("[Elongatd] Error initializing auth status:", error);
   }
 }
@@ -124,62 +123,18 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-// Helper function to make API requests through background script
-async function makeAPIRequest(url, options = {}) {
-  try {
-    console.log("[Elongatd] Making API request:", url);
-    const response = await new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(
-        {
-          type: "API_REQUEST",
-          url,
-          options: {
-            ...options,
-            credentials: "include", // Include cookies in the request
-            headers: {
-              ...options.headers,
-              "Content-Type": "application/json",
-            },
-          },
-        },
-        (response) => {
-          if (response.success) {
-            resolve(response.data);
-          } else {
-            reject(new Error(response.error));
-          }
-        }
-      );
-    });
+// Helper function to estimate tokens in a string (rough estimation)
+function estimateTokens(str) {
+  // GPT tokenizer generally splits on spaces and punctuation
+  // A rough estimate is 4 characters per token
+  return Math.ceil(str.length / 4);
+}
 
-    console.log("[Elongatd] API response:", response);
-
-    // If the response includes auth information, update the stored auth status
-    if (response.user !== undefined) {
-      const isAuthenticated = !!response.user;
-      const expires = response.expires;
-      console.log(
-        "[Elongatd] Updating auth status:",
-        isAuthenticated,
-        "expires:",
-        expires
-      );
-      authStatus = isAuthenticated;
-      authExpires = expires;
-      chrome.storage.local.set({ authStatus, authExpires });
-    }
-
-    return response;
-  } catch (error) {
-    console.error("[Elongatd] API request error:", error);
-    // If we get an auth error, clear the stored auth status
-    if (error.message?.includes("unauthorized")) {
-      authStatus = false;
-      authExpires = null;
-      chrome.storage.local.set({ authStatus: false, authExpires: null });
-    }
-    throw error;
-  }
+// Helper function to calculate cost in USD
+function calculateCost(inputTokens, outputTokens) {
+  const inputCost = (inputTokens / 1000) * 0.01; // $0.01 per 1K tokens
+  const outputCost = (outputTokens / 1000) * 0.03; // $0.03 per 1K tokens
+  return inputCost + outputCost;
 }
 
 // Create notification element
@@ -234,10 +189,10 @@ function createNotification(
     notification.innerHTML = `
     <div class="notification-content">
       <h2>🧵 Thread with ${tweetCount} tweets detected</h2>
-      <p>Login to create a better reading experience.</p>
+      <p>Simply login with X to get a better reading experience.</p>
       <div class="notification-buttons">
         <button class="thread-extractor-button" id="loginButton">
-          Login to continue
+          Read better version
         </button>
       </div>
     </div>
@@ -286,21 +241,22 @@ async function showNotification(postId) {
 
     // Then check blog existence
     const response = await makeAPIRequest(
-      `${window.extensionConfig.authUrl}/api/threads/${postId}/blogify/exists`,
+      `/api/threads/${postId}/blogify/exists`,
       { credentials: "include" }
     );
 
     const blogExists = response.exists;
+    const isDevelopment = !chrome.runtime.getManifest().update_url;
     console.log(
       "[Elongatd] Blog exists:",
       blogExists,
       "Is authenticated:",
-      authStatus
+      isDevelopment || authStatus
     );
 
     const notification = createNotification(
       blogExists,
-      authStatus,
+      isDevelopment || authStatus, // Force true in development
       threadInfo.tweets.length
     );
 
@@ -340,16 +296,13 @@ async function showNotification(postId) {
 
             // Only store thread data when user explicitly clicks create
             const threadInfo = extractThreadInfoFromResponse(lastTweetDetail);
-            await makeAPIRequest(
-              `${window.extensionConfig.apiBaseUrl}/${postId}`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify(threadInfo),
-              }
-            );
+            await makeAPIRequest(`/api/threads/${postId}`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(threadInfo),
+            });
 
             // Open the thread page
             window.open(
@@ -617,16 +570,17 @@ document.addEventListener("tweet_detail_captured", async (event) => {
 
     // Then check if blog exists
     const blogStatus = await makeAPIRequest(
-      `${window.extensionConfig.authUrl}/api/threads/${tweetId}/blogify/exists`,
+      `/api/threads/${tweetId}/blogify/exists`,
       { credentials: "include" }
     );
 
     const blogExists = blogStatus.exists;
 
     // Create and show notification
+    const isDevelopment = !chrome.runtime.getManifest().update_url;
     const notification = createNotification(
       blogExists,
-      authStatus,
+      isDevelopment || authStatus, // Force true in development
       threadInfo.tweets.length
     );
 
@@ -666,16 +620,13 @@ document.addEventListener("tweet_detail_captured", async (event) => {
 
             // Only store thread data when user explicitly clicks create
             const threadInfo = extractThreadInfoFromResponse(lastTweetDetail);
-            await makeAPIRequest(
-              `${window.extensionConfig.apiBaseUrl}/${tweetId}`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify(threadInfo),
-              }
-            );
+            await makeAPIRequest(`/api/threads/${tweetId}`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(threadInfo),
+            });
 
             // Open the thread page
             window.open(
@@ -708,3 +659,68 @@ document.addEventListener("tweet_detail_captured", async (event) => {
     console.error("[Elongatd] Error processing tweet detail:", error);
   }
 });
+
+// Update the makeAPIRequest function to use direct storage access
+async function makeAPIRequest(endpoint, options = {}) {
+  try {
+    const isDevelopment = !chrome.runtime.getManifest().update_url;
+    const url = `${window.extensionConfig.authUrl}${endpoint}`;
+    console.log("[Elongatd] Making API request to:", url);
+
+    const response = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        {
+          type: "API_REQUEST",
+          url,
+          options: {
+            ...options,
+            credentials: "include",
+            headers: {
+              ...options.headers,
+              "Content-Type": "application/json",
+            },
+          },
+        },
+        (response) => {
+          if (response.success) {
+            resolve(response.data);
+          } else {
+            reject(new Error(response.error));
+          }
+        }
+      );
+    });
+
+    console.log("[Elongatd] API response:", response);
+
+    if (response.user !== undefined) {
+      // DEVELOPMENT: Uncomment the next line to skip login requirement
+      // const isAuthenticated = isDevelopment || !!response.user;
+      // PRODUCTION: Uncomment the next line to require login
+      const isAuthenticated = !!response.user;
+
+      const expires =
+        response.expires ||
+        new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      console.log(
+        "[Elongatd] Updating auth status:",
+        isAuthenticated,
+        "expires:",
+        expires
+      );
+      authStatus = isAuthenticated;
+      authExpires = expires;
+      await chrome.storage.local.set({ authStatus, authExpires });
+    }
+
+    return response;
+  } catch (error) {
+    console.error("[Elongatd] API request error:", error);
+    if (error.message?.includes("unauthorized")) {
+      authStatus = false;
+      authExpires = null;
+      await chrome.storage.local.set({ authStatus: false, authExpires: null });
+    }
+    throw error;
+  }
+}
