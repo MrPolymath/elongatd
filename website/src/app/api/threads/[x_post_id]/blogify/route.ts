@@ -93,25 +93,39 @@ export async function GET(
   try {
     const { x_post_id } = await context.params;
 
-    // Get the user session
-    const session = await getServerSession(authOptions);
+    // Get user info - use mock data in development
+    let userId: string;
+    let userName: string;
+    let userImage: string;
 
-    // Check if user is authenticated
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    if (process.env.NODE_ENV === "development") {
+      // Use mock user data for local development
+      userId = "dev_user";
+      userName = "Development User";
+      userImage = "https://avatars.githubusercontent.com/u/1234567";
+    } else {
+      // Get the user session in production
+      const session = await getServerSession(authOptions);
 
-    // Extract user info from session
-    const { id: userId, name: userName, image: userImage } = session.user;
+      // Check if user is authenticated
+      if (!session?.user) {
+        return NextResponse.json(
+          { error: "Authentication required" },
+          { status: 401 }
+        );
+      }
 
-    if (!userId || !userName || !userImage) {
-      return NextResponse.json(
-        { error: "Invalid user session" },
-        { status: 400 }
-      );
+      // Extract user info from session
+      userId = session.user.id;
+      userName = session.user.name;
+      userImage = session.user.image;
+
+      if (!userId || !userName || !userImage) {
+        return NextResponse.json(
+          { error: "Invalid user session" },
+          { status: 400 }
+        );
+      }
     }
 
     // Check feature flag

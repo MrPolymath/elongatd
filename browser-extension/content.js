@@ -38,6 +38,98 @@ setInterval(() => {
   }
 }, 500);
 
+// Helper function to make API requests
+async function makeAPIRequest(endpoint, options = {}) {
+  try {
+    // Determine API base URL based on environment
+    const isDevelopment = !window.location.hostname.includes("x.com");
+    const baseUrl = isDevelopment
+      ? "http://localhost:3000"
+      : window.extensionConfig.authUrl;
+
+    console.log("[Elongatd] Making API request:", endpoint, "to", baseUrl);
+
+    // In development, make direct requests
+    if (isDevelopment) {
+      const response = await fetch(`${baseUrl}${endpoint}`, {
+        ...options,
+        credentials: "include",
+        headers: {
+          ...options.headers,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+      console.log("[Elongatd] API response:", data);
+
+      // Always consider as authenticated in development
+      authStatus = true;
+      authExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      await chrome.storage.local.set({ authStatus, authExpires });
+
+      return data;
+    }
+
+    // In production, use the background script for requests
+    console.log(
+      "[Elongatd] Making API request through background script:",
+      endpoint
+    );
+    const response = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        {
+          type: "API_REQUEST",
+          url: `${baseUrl}${endpoint}`,
+          options: {
+            ...options,
+            credentials: "include",
+            headers: {
+              ...options.headers,
+              "Content-Type": "application/json",
+            },
+          },
+        },
+        (response) => {
+          if (response.success) {
+            resolve(response.data);
+          } else {
+            reject(new Error(response.error));
+          }
+        }
+      );
+    });
+
+    console.log("[Elongatd] API response:", response);
+
+    // If the response includes auth information in production, update the stored auth status
+    if (response.user !== undefined) {
+      const isAuthenticated = !!response.user;
+      const expires = response.expires;
+      console.log(
+        "[Elongatd] Updating auth status:",
+        isAuthenticated,
+        "expires:",
+        expires
+      );
+      authStatus = isAuthenticated;
+      authExpires = expires;
+      await chrome.storage.local.set({ authStatus, authExpires });
+    }
+
+    return response;
+  } catch (error) {
+    console.error("[Elongatd] API request error:", error);
+    // If we get an auth error in production, clear the stored auth status
+    if (!isDevelopment && error.message?.includes("unauthorized")) {
+      authStatus = false;
+      authExpires = null;
+      await chrome.storage.local.set({ authStatus: false, authExpires: null });
+    }
+    throw error;
+  }
+}
+
 // Initialize auth status from storage and check current status if needed
 async function initializeAuthStatus() {
   try {
@@ -46,12 +138,7 @@ async function initializeAuthStatus() {
       "authStatus",
       "authExpires",
     ]);
-    console.log(
-      "[Elongatd] Loaded auth status from storage:",
-      result.authStatus,
-      "expires:",
-      result.authExpires
-    );
+    console.log("[Elongatd] Loaded auth status from storage:", result);
 
     // If we have a valid non-expired auth status, use it
     if (result.authStatus !== undefined && result.authExpires) {
@@ -123,64 +210,6 @@ document.addEventListener("visibilitychange", () => {
     });
   }
 });
-
-// Helper function to make API requests through background script
-async function makeAPIRequest(url, options = {}) {
-  try {
-    console.log("[Elongatd] Making API request:", url);
-    const response = await new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(
-        {
-          type: "API_REQUEST",
-          url,
-          options: {
-            ...options,
-            credentials: "include", // Include cookies in the request
-            headers: {
-              ...options.headers,
-              "Content-Type": "application/json",
-            },
-          },
-        },
-        (response) => {
-          if (response.success) {
-            resolve(response.data);
-          } else {
-            reject(new Error(response.error));
-          }
-        }
-      );
-    });
-
-    console.log("[Elongatd] API response:", response);
-
-    // If the response includes auth information, update the stored auth status
-    if (response.user !== undefined) {
-      const isAuthenticated = !!response.user;
-      const expires = response.expires;
-      console.log(
-        "[Elongatd] Updating auth status:",
-        isAuthenticated,
-        "expires:",
-        expires
-      );
-      authStatus = isAuthenticated;
-      authExpires = expires;
-      chrome.storage.local.set({ authStatus, authExpires });
-    }
-
-    return response;
-  } catch (error) {
-    console.error("[Elongatd] API request error:", error);
-    // If we get an auth error, clear the stored auth status
-    if (error.message?.includes("unauthorized")) {
-      authStatus = false;
-      authExpires = null;
-      chrome.storage.local.set({ authStatus: false, authExpires: null });
-    }
-    throw error;
-  }
-}
 
 // Helper function to estimate tokens in a string (rough estimation)
 function estimateTokens(str) {
