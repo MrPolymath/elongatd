@@ -225,14 +225,9 @@ export default function ThreadPost() {
           if (exists && content) {
             setBlogContent(content);
           } else {
-            // If blog doesn't exist, generate it
-            const blogResponse = await fetch(`/api/threads/${postId}/blogify`);
-            if (blogResponse.ok) {
-              const data = await blogResponse.json();
-              setBlogContent(data.content);
-            } else {
-              throw new Error("Failed to generate blog view");
-            }
+            throw new Error(
+              "Blog version not found. Please create it from the X post first."
+            );
           }
         }
       } catch (err) {

@@ -307,20 +307,37 @@ async function showNotification(postId) {
               }
             );
 
-            // If successful, open the blog post
-            if (response.content) {
+            // Only open the blog post if we got a successful response with content
+            if (response && response.content) {
+              createButton.textContent = "Opening...";
               window.open(
                 `${window.extensionConfig.baseUrl}/post/${postId}`,
                 "_blank"
               );
             } else {
-              throw new Error("Failed to create blog post");
+              throw new Error(
+                "Failed to create blog post: No content returned"
+              );
             }
           } catch (error) {
             console.error("[Elongatd] Error creating blog post:", error);
-            // Reset button state on error
+            // Reset button state and show error
             createButton.disabled = false;
             createButton.textContent = "Create readable version";
+            // Show error message to user
+            const notification = createButton.closest(".notification-content");
+            if (notification) {
+              const errorMessage = document.createElement("p");
+              errorMessage.style.color = "red";
+              errorMessage.textContent =
+                "Failed to create blog post. Please try again.";
+              notification.insertBefore(
+                errorMessage,
+                createButton.parentElement
+              );
+              // Remove error message after 3 seconds
+              setTimeout(() => errorMessage.remove(), 3000);
+            }
           }
         };
       }
@@ -638,20 +655,37 @@ document.addEventListener("tweet_detail_captured", async (event) => {
               }
             );
 
-            // If successful, open the blog post
-            if (response.content) {
+            // Only open the blog post if we got a successful response with content
+            if (response && response.content) {
+              createButton.textContent = "Opening...";
               window.open(
                 `${window.extensionConfig.baseUrl}/post/${tweetId}`,
                 "_blank"
               );
             } else {
-              throw new Error("Failed to create blog post");
+              throw new Error(
+                "Failed to create blog post: No content returned"
+              );
             }
           } catch (error) {
             console.error("[Elongatd] Error creating blog post:", error);
-            // Reset button state on error
+            // Reset button state and show error
             createButton.disabled = false;
             createButton.textContent = "Create readable version";
+            // Show error message to user
+            const notification = createButton.closest(".notification-content");
+            if (notification) {
+              const errorMessage = document.createElement("p");
+              errorMessage.style.color = "red";
+              errorMessage.textContent =
+                "Failed to create blog post. Please try again.";
+              notification.insertBefore(
+                errorMessage,
+                createButton.parentElement
+              );
+              // Remove error message after 3 seconds
+              setTimeout(() => errorMessage.remove(), 3000);
+            }
           }
         };
       }
