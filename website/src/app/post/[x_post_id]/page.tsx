@@ -382,12 +382,12 @@ export default function ThreadPost() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h2 className="text-base lg:text-xl font-semibold text-foreground truncate">
+                        <h2 className="text-base lg:text-xl font-semibold text-foreground break-words">
                           {author.name}
                         </h2>
                         {author.verified && <VerifiedBadge />}
                       </div>
-                      <p className="text-muted-foreground truncate text-sm">
+                      <p className="text-muted-foreground text-sm break-words">
                         @{author.username}
                       </p>
                     </div>
