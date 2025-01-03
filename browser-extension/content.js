@@ -294,15 +294,30 @@ async function showNotification(postId) {
             createButton.disabled = true;
             createButton.textContent = "Creating...";
 
+            // First verify auth status
+            const authResponse = await makeAPIRequest(`/api/auth/session`, {
+              credentials: "include",
+            });
+
+            if (!authResponse?.user) {
+              // If not authenticated, show login button
+              createButton.textContent = "Please log in first";
+              setTimeout(() => {
+                window.open(
+                  `${window.extensionConfig.authUrl}/login`,
+                  "_blank"
+                );
+              }, 1000);
+              return;
+            }
+
             // Extract thread info and send directly to blogify endpoint
             const threadInfo = extractThreadInfoFromResponse(lastTweetDetail);
             const response = await makeAPIRequest(
               `/api/threads/${postId}/blogify`,
               {
                 method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
+                credentials: "include",
                 body: JSON.stringify(threadInfo),
               }
             );
@@ -330,7 +345,9 @@ async function showNotification(postId) {
               const errorMessage = document.createElement("p");
               errorMessage.style.color = "red";
               errorMessage.textContent =
-                "Failed to create blog post. Please try again.";
+                error.message === "Please log in to elongatd.com first"
+                  ? "Please log in first"
+                  : "Failed to create blog post. Please try again.";
               notification.insertBefore(
                 errorMessage,
                 createButton.parentElement
@@ -642,15 +659,30 @@ document.addEventListener("tweet_detail_captured", async (event) => {
             createButton.disabled = true;
             createButton.textContent = "Creating...";
 
+            // First verify auth status
+            const authResponse = await makeAPIRequest(`/api/auth/session`, {
+              credentials: "include",
+            });
+
+            if (!authResponse?.user) {
+              // If not authenticated, show login button
+              createButton.textContent = "Please log in first";
+              setTimeout(() => {
+                window.open(
+                  `${window.extensionConfig.authUrl}/login`,
+                  "_blank"
+                );
+              }, 1000);
+              return;
+            }
+
             // Extract thread info and send directly to blogify endpoint
             const threadInfo = extractThreadInfoFromResponse(lastTweetDetail);
             const response = await makeAPIRequest(
               `/api/threads/${tweetId}/blogify`,
               {
                 method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
+                credentials: "include",
                 body: JSON.stringify(threadInfo),
               }
             );
@@ -678,7 +710,9 @@ document.addEventListener("tweet_detail_captured", async (event) => {
               const errorMessage = document.createElement("p");
               errorMessage.style.color = "red";
               errorMessage.textContent =
-                "Failed to create blog post. Please try again.";
+                error.message === "Please log in to elongatd.com first"
+                  ? "Please log in first"
+                  : "Failed to create blog post. Please try again.";
               notification.insertBefore(
                 errorMessage,
                 createButton.parentElement
@@ -713,23 +747,57 @@ async function makeAPIRequest(endpoint, options = {}) {
   try {
     const isDevelopment = !chrome.runtime.getManifest().update_url;
     const url = `${window.extensionConfig.authUrl}${endpoint}`;
-    console.log("[Elongatd] Making API request to:", url);
+    console.log("[Elongatd] Making API request:", {
+      url,
+      options: JSON.stringify(options, null, 2),
+      isDevelopment,
+      authStatus,
+      authExpires,
+    });
+
+    // Get the current session if we don't have it
+    let accessToken = null;
+    if (endpoint !== "/api/auth/session") {
+      const session = await makeAPIRequest("/api/auth/session", {
+        credentials: "include",
+      });
+      accessToken = session?.accessToken;
+      console.log("[Elongatd] Got access token for request:", accessToken);
+    }
+
+    // Prepare headers with access token if available
+    const headers = {
+      ...options.headers,
+      "Content-Type": "application/json",
+    };
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+      console.log(
+        "[Elongatd] Added Authorization header:",
+        headers.Authorization
+      );
+    }
+
+    const finalOptions = {
+      ...options,
+      credentials: "include",
+      headers,
+      mode: "cors",
+    };
+    console.log(
+      "[Elongatd] Final request options:",
+      JSON.stringify(finalOptions, null, 2)
+    );
 
     const response = await new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
         {
           type: "API_REQUEST",
           url,
-          options: {
-            ...options,
-            credentials: "include",
-            headers: {
-              ...options.headers,
-              "Content-Type": "application/json",
-            },
-          },
+          options: finalOptions,
         },
         (response) => {
+          console.log("[Elongatd] Background script response:", response);
           if (response.success) {
             resolve(response.data);
           } else {
@@ -742,14 +810,8 @@ async function makeAPIRequest(endpoint, options = {}) {
     console.log("[Elongatd] API response:", response);
 
     if (response.user !== undefined) {
-      // DEVELOPMENT: Uncomment the next line to skip login requirement
-      // const isAuthenticated = isDevelopment || !!response.user;
-      // PRODUCTION: Uncomment the next line to require login
       const isAuthenticated = !!response.user;
-
-      const expires =
-        response.expires ||
-        new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const expires = response.expires;
       console.log(
         "[Elongatd] Updating auth status:",
         isAuthenticated,
@@ -763,7 +825,11 @@ async function makeAPIRequest(endpoint, options = {}) {
 
     return response;
   } catch (error) {
-    console.error("[Elongatd] API request error:", error);
+    console.error("[Elongatd] API request error:", {
+      error,
+      message: error.message,
+      stack: error.stack,
+    });
     if (error.message?.includes("unauthorized")) {
       authStatus = false;
       authExpires = null;

@@ -5,6 +5,7 @@ import { generateText, Output } from "ai";
 import { z } from "zod";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
+import { getToken } from "next-auth/jwt";
 
 interface Attachment {
   type: string;
@@ -92,6 +93,47 @@ const blogSchema = z.object({
   summary: z.string().describe("A one-sentence summary of the post"),
 });
 
+// Helper function to handle CORS
+function corsResponse(response: NextResponse) {
+  // Allow requests from any origin since we're using token auth
+  response.headers.set("Access-Control-Allow-Origin", "*");
+  response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  response.headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization"
+  );
+  return response;
+}
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS() {
+  return corsResponse(new NextResponse(null, { status: 200 }));
+}
+
+// Helper function to validate API token
+async function validateToken(request: NextRequest) {
+  try {
+    // Use NextAuth's getToken to validate the token
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+
+    if (!token?.sub) {
+      return null;
+    }
+
+    return {
+      id: token.sub,
+      name: (token.name as string) || "User",
+      image: (token.picture as string) || "",
+    };
+  } catch (error) {
+    console.error("Error validating token:", error);
+    return null;
+  }
+}
+
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ x_post_id: string }> }
@@ -100,46 +142,28 @@ export async function POST(
     const { x_post_id } = await context.params;
     const threadData = await request.json();
 
-    // Get user info - use mock data in development
-    let userId: string;
-    let userName: string;
-    let userImage: string;
+    // Get user info from token
+    const user = await validateToken(request);
+    console.log("[Elongatd] User from token:", user);
 
-    if (process.env.NODE_ENV === "development") {
-      // Use mock user data for local development
-      userId = "dev_user";
-      userName = "Development User";
-      userImage = "https://avatars.githubusercontent.com/u/1234567";
-    } else {
-      // Get the user session in production
-      const session = await getServerSession(authOptions);
-
-      // Check if user is authenticated
-      if (!session?.user) {
-        return NextResponse.json(
-          { error: "Authentication required" },
-          { status: 401 }
-        );
-      }
-
-      // Extract user info from session
-      userId = session.user.id;
-      userName = session.user.name || "Anonymous";
-      userImage = session.user.image || "";
-
-      if (!userId) {
-        return NextResponse.json(
-          { error: "Invalid user session" },
-          { status: 400 }
-        );
-      }
+    if (!user?.id) {
+      return corsResponse(
+        NextResponse.json({ error: "Invalid user session" }, { status: 401 })
+      );
     }
+
+    // Use the user info from the token
+    const userId = user.id;
+    const userName = user.name;
+    const userImage = user.image;
 
     // Check feature flag
     if (process.env.ENABLE_BLOGIFY !== "true") {
-      return NextResponse.json(
-        { error: "This feature is not currently available" },
-        { status: 403 }
+      return corsResponse(
+        NextResponse.json(
+          { error: "This feature is not currently available" },
+          { status: 403 }
+        )
       );
     }
 
@@ -289,22 +313,25 @@ export async function POST(
         total_cost_millicents: totalCostMillicents,
       });
 
-      return NextResponse.json({
-        content: blogContent,
-        created_at: new Date().toISOString(),
-      });
+      return corsResponse(
+        NextResponse.json({
+          content: blogContent,
+          created_at: new Date().toISOString(),
+        })
+      );
     } catch (error) {
       console.error("Error generating blog post:", error);
-      return NextResponse.json(
-        { error: "Failed to generate blog post" },
-        { status: 500 }
+      return corsResponse(
+        NextResponse.json(
+          { error: "Failed to generate blog post" },
+          { status: 500 }
+        )
       );
     }
   } catch (error) {
     console.error("Error processing request:", error);
-    return NextResponse.json(
-      { error: "Failed to process request" },
-      { status: 500 }
+    return corsResponse(
+      NextResponse.json({ error: "Failed to process request" }, { status: 500 })
     );
   }
 }
